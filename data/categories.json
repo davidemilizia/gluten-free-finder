@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "name": "Certificato Associazione Celiachia",
+    "color": "#28a745"
+  },
+  {
+    "id": 2,
+    "name": "Gluten Free Verificato",
+    "color": "#0dcaf0"
+  },
+  {
+    "id": 3,
+    "name": "Gluten Free non certificato",
+    "color": "#ffc107"
+  },
+  {
+    "id": 4,
+    "name": "Possibile contaminazione",
+    "color": "#dc3545"
+  }
+]
