@@ -1,1 +1,18 @@
-data/places.json
+[
+  {
+    "id": 1,
+    "name": "Mama Eat Roma",
+    "typeId": 1,
+    "categoryId": 1,
+    "countryId": 1,
+    "regionId": 1,
+    "cityId": 1,
+    "address": "Via di San Cosimato 7",
+    "latitude": 41.889,
+    "longitude": 12.47,
+    "phone": "+39000000000",
+    "website": "https://example.com",
+    "rating": 5,
+    "description": "Ristorante specializzato gluten free"
+  }
+]
