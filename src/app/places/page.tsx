@@ -1,4 +1,5 @@
 import places from "../../../data/places.json";
+import Link from "next/link";
 
 export default function PlacesPage() {
   return (
@@ -7,7 +8,11 @@ export default function PlacesPage() {
 
       {places.map((place: any) => (
         <div key={place.id}>
-          <h2>{place.name}</h2>
+          <h2>
+            {`/places/${place.slug}`}
+              {place.name}
+            </Link>
+          </h2>
 
           <p>{place.address}</p>
 
