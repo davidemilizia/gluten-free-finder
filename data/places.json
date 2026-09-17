@@ -1,7 +1,8 @@
 [
-  {
-    "id": 1,
-    "name": "Mama Eat Roma",
+{
+  "id": 1,
+  "slug": "mama-eat-roma",
+  "name": "Mama Eat Roma",
     "typeId": 1,
     "categoryId": 1,
     "countryId": 1,
