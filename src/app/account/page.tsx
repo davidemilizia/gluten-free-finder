@@ -15,51 +15,31 @@ export default function AccountPage() {
   useEffect(() => {
     let active = true;
 
-    async function loadSession() {
-      try {
-        const { data, error } = await supabase.auth.getSession();
+    async function loadAccount() {
+      const { data, error } = await supabase.auth.getSession();
 
-        if (!active) return;
+      if (!active) return;
 
-        if (error) {
-          setErrorMessage(error.message);
-          setLoading(false);
-          return;
-        }
-
-        if (!data.session?.user) {
-          router.replace("/login");
-          return;
-        }
-
-        setUser(data.session.user);
+      if (error) {
+        setErrorMessage(error.message);
         setLoading(false);
-      } catch {
-        if (!active) return;
-        setErrorMessage("Impossibile verificare la sessione. Ricarica la pagina.");
-        setLoading(false);
+        return;
       }
+
+      if (!data.session) {
+        setLoading(false);
+        router.replace("/login");
+        return;
+      }
+
+      setUser(data.session.user);
+      setLoading(false);
     }
 
-    loadSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!active) return;
-
-        if (session?.user) {
-          setUser(session.user);
-          setLoading(false);
-        } else {
-          setUser(null);
-          router.replace("/login");
-        }
-      }
-    );
+    loadAccount();
 
     return () => {
       active = false;
-      authListener.subscription.unsubscribe();
     };
   }, [router]);
 
@@ -73,15 +53,10 @@ export default function AccountPage() {
     }
 
     router.replace("/login");
-    router.refresh();
   }
 
   if (loading) {
-    return (
-      <main style={pageStyle}>
-        <p>Caricamento account...</p>
-      </main>
-    );
+    return <main style={pageStyle}><p>Caricamento account...</p></main>;
   }
 
   if (errorMessage) {
@@ -94,27 +69,20 @@ export default function AccountPage() {
     );
   }
 
+  if (!user) return null;
+
   return (
     <main style={pageStyle}>
       <Link href="/">← Torna alla homepage</Link>
       <h1>Il mio account</h1>
 
       <section style={cardStyle}>
-        <p>
-          <strong>Nome:</strong>{" "}
-          {user?.user_metadata?.display_name || "Non indicato"}
-        </p>
-        <p><strong>Email:</strong> {user?.email}</p>
-        <p>
-          <strong>Email confermata:</strong>{" "}
-          {user?.email_confirmed_at ? "Sì" : "No"}
-        </p>
+        <p><strong>Nome:</strong> {user.user_metadata?.display_name || "Non indicato"}</p>
+        <p><strong>Email:</strong> {user.email}</p>
+        <p><strong>Email confermata:</strong> {user.email_confirmed_at ? "Sì" : "No"}</p>
       </section>
 
-      <p>
-        Le funzioni per recensioni, fotografie e preferiti saranno collegate in
-        questa area.
-      </p>
+      <p>Le funzioni per recensioni, fotografie e preferiti saranno collegate in questa area.</p>
 
       <button type="button" onClick={signOut} style={buttonStyle}>
         Disconnetti
