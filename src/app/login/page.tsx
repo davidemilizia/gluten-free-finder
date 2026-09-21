@@ -1,57 +1,171 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
 
-export default function AccountPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const confirmed = searchParams.get("confirmed") === "1";
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) {
-        router.replace("/login");
+    let active = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+
+      if (data.session) {
+        router.replace("/account");
         return;
       }
-      setUser(data.user);
-      setLoading(false);
+
+      setCheckingSession(false);
     });
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.push("/");
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErrorMessage(
+        "Accesso non riuscito. Controlla email, password e conferma dell'account."
+      );
+      return;
+    }
+
+    router.replace("/account");
     router.refresh();
   }
 
-  if (loading) {
-    return <main style={pageStyle}><p>Caricamento account...</p></main>;
+  if (checkingSession) {
+    return (
+      <main style={pageStyle}>
+        <p>Verifica sessione...</p>
+      </main>
+    );
   }
 
   return (
     <main style={pageStyle}>
       <Link href="/">← Torna alla homepage</Link>
-      <h1>Il mio account</h1>
+      <h1>Accedi</h1>
+      <p>Accedi per gestire il profilo e contribuire alla community.</p>
 
-      <section style={cardStyle}>
-        <p><strong>Nome:</strong> {user?.user_metadata?.display_name || "Non indicato"}</p>
-        <p><strong>Email:</strong> {user?.email}</p>
-        <p><strong>Email confermata:</strong> {user?.email_confirmed_at ? "Sì" : "No"}</p>
-      </section>
+      {confirmed && (
+        <div style={successStyle}>
+          Email confermata. Ora puoi accedere al tuo account.
+        </div>
+      )}
 
-      <p>Le funzioni per recensioni, fotografie e preferiti saranno collegate in questa area.</p>
+      {errorMessage && <div style={errorStyle}>{errorMessage}</div>}
 
-      <button type="button" onClick={signOut} style={buttonStyle}>
-        Disconnetti
-      </button>
+      <form onSubmit={handleSubmit} style={formStyle}>
+        <label style={fieldStyle}>
+          Email
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            autoComplete="email"
+            style={inputStyle}
+          />
+        </label>
+
+        <label style={fieldStyle}>
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            autoComplete="current-password"
+            style={inputStyle}
+          />
+        </label>
+
+        <button type="submit" disabled={loading} style={buttonStyle}>
+          {loading ? "Accesso in corso..." : "Accedi"}
+        </button>
+      </form>
+
+      <p>
+        Non hai un account? <Link href="/register">Registrati</Link>
+      </p>
     </main>
   );
 }
 
-const pageStyle = { maxWidth: "720px", margin: "0 auto", padding: "40px 20px", fontFamily: "Arial, sans-serif", lineHeight: 1.6 };
-const cardStyle = { padding: "20px", margin: "24px 0", border: "1px solid #d6d6d6", borderRadius: "10px", background: "#fafafa" };
-const buttonStyle = { minHeight: "44px", padding: "0 20px", border: 0, borderRadius: "6px", background: "#b91c1c", color: "white", fontWeight: 700, cursor: "pointer" };
+const pageStyle = {
+  maxWidth: "560px",
+  margin: "0 auto",
+  padding: "40px 20px",
+  fontFamily: "Arial, sans-serif",
+  lineHeight: 1.6,
+};
+
+const formStyle = {
+  display: "grid",
+  gap: "16px",
+  margin: "28px 0",
+};
+
+const fieldStyle = {
+  display: "grid",
+  gap: "6px",
+  fontWeight: 700,
+};
+
+const inputStyle = {
+  minHeight: "42px",
+  padding: "8px 10px",
+  border: "1px solid #aaa",
+  borderRadius: "6px",
+  fontSize: "1rem",
+};
+
+const buttonStyle = {
+  minHeight: "44px",
+  border: 0,
+  borderRadius: "6px",
+  background: "#15803d",
+  color: "white",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const successStyle = {
+  padding: "14px",
+  border: "1px solid #86c99a",
+  borderRadius: "8px",
+  background: "#effaf2",
+  color: "#14532d",
+};
+
+const errorStyle = {
+  padding: "14px",
+  border: "1px solid #e4a2a2",
+  borderRadius: "8px",
+  background: "#fff1f1",
+  color: "#7f1d1d",
+};
