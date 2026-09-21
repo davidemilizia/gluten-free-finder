@@ -1,0 +1,13 @@
+[
+  {
+    "id": 1,
+    "placeSlug": "mama-eat-roma",
+    "userName": "Utente demo",
+    "rating": 5,
+    "title": "Recensione dimostrativa",
+    "comment": "Contenuto di prova per verificare la visualizzazione delle recensioni.",
+    "createdAt": "2026-09-21",
+    "approved": true,
+    "isDemo": true
+  }
+]
