@@ -1,41 +1,40 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PlaceMap from "@/components/PlaceMap";
+import RatingSummary from "@/components/RatingSummary";
+import ReviewsSection from "@/components/ReviewsSection";
+import PhotoGallery from "@/components/PhotoGallery";
 import places from "../../../../data/places.json";
+import reviews from "../../../../data/reviews.json";
+import photos from "../../../../data/photos.json";
 
 type PlacePageProps = {
-  params: Promise<{
-    slug: string;
-  }>;
+  params: Promise<{ slug: string }>;
 };
 
 export default async function PlaceDetailPage({ params }: PlacePageProps) {
   const { slug } = await params;
   const place = places.find((item) => item.slug === slug);
 
-  if (!place) {
-    notFound();
-  }
+  if (!place) notFound();
+
+  const placeReviews = reviews.filter(
+    (review) => review.placeSlug === slug && review.approved
+  );
+  const placePhotos = photos.filter(
+    (photo) => photo.placeSlug === slug && photo.approved
+  );
+  const averageRating = placeReviews.length
+    ? placeReviews.reduce((total, review) => total + review.rating, 0) /
+      placeReviews.length
+    : 0;
 
   return (
-    <main
-      style={{
-        maxWidth: "900px",
-        margin: "0 auto",
-        padding: "32px 20px",
-        fontFamily: "Arial, sans-serif",
-        lineHeight: 1.6,
-      }}
-    >
+    <main style={{ maxWidth: "900px", margin: "0 auto", padding: "32px 20px", fontFamily: "Arial, sans-serif", lineHeight: 1.6 }}>
       <Link href="/places">← Torna all'elenco dei locali</Link>
 
-      <h1 style={{ marginTop: "28px", marginBottom: "8px" }}>
-        {place.name}
-      </h1>
-
-      <p style={{ marginTop: 0, color: "#555" }}>
-        {place.type} · {place.city}, {place.region}
-      </p>
+      <h1 style={{ marginTop: "28px", marginBottom: "8px" }}>{place.name}</h1>
+      <p style={{ marginTop: 0, color: "#555" }}>{place.type} · {place.city}, {place.region}</p>
 
       <section>
         <h2>Informazioni</h2>
@@ -46,46 +45,22 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
         <p><strong>Tipologia:</strong> {place.type}</p>
         <p><strong>Affidabilità gluten free:</strong> {place.gfCategory}</p>
         <p><strong>Indirizzo:</strong> {place.address}</p>
-        <p><strong>Valutazione:</strong> ⭐ {place.rating}/5</p>
         <p><strong>Descrizione:</strong> {place.description}</p>
       </section>
 
+      <RatingSummary average={averageRating} count={placeReviews.length} />
+
       <section>
         <h2>Contatti</h2>
-
-        {place.phone ? (
-          <p>
-            <strong>Telefono:</strong>{" "}
-            <a href={`tel:${place.phone}`}>{place.phone}</a>
-          </p>
-        ) : (
-          <p>Telefono non disponibile.</p>
-        )}
-
-        {place.website ? (
-          <p>
-            <strong>Sito web:</strong>{" "}
-            <a href={place.website} target="_blank" rel="noreferrer">
-              Visita il sito
-            </a>
-          </p>
-        ) : (
-          <p>Sito web non disponibile.</p>
-        )}
+        {place.phone ? <p><strong>Telefono:</strong> <a href={`tel:${place.phone}`}>{place.phone}</a></p> : <p>Telefono non disponibile.</p>}
+        {place.website ? <p><strong>Sito web:</strong> <a href={place.website} target="_blank" rel="noreferrer">Visita il sito</a></p> : <p>Sito web non disponibile.</p>}
       </section>
 
-      <PlaceMap
-        latitude={place.latitude}
-        longitude={place.longitude}
-        name={place.name}
-      />
+      <PlaceMap latitude={place.latitude} longitude={place.longitude} name={place.name} />
+      <PhotoGallery photos={placePhotos} placeName={place.name} />
+      <ReviewsSection reviews={placeReviews} />
 
-      {place.notes && (
-        <section>
-          <h2>Note</h2>
-          <p>{place.notes}</p>
-        </section>
-      )}
+      {place.notes && <section><h2>Note</h2><p>{place.notes}</p></section>}
     </main>
   );
 }
