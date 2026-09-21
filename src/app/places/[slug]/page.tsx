@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PlaceMap from "@/components/PlaceMap";
 import places from "../../../../data/places.json";
 
 type PlacePageProps = {
@@ -38,34 +39,15 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
 
       <section>
         <h2>Informazioni</h2>
-
-        <p>
-          <strong>Continente:</strong> {place.continent}
-        </p>
-        <p>
-          <strong>Nazione:</strong> {place.country}
-        </p>
-        <p>
-          <strong>Regione:</strong> {place.region}
-        </p>
-        <p>
-          <strong>Città:</strong> {place.city}
-        </p>
-        <p>
-          <strong>Tipologia:</strong> {place.type}
-        </p>
-        <p>
-          <strong>Affidabilità gluten free:</strong> {place.gfCategory}
-        </p>
-        <p>
-          <strong>Indirizzo:</strong> {place.address}
-        </p>
-        <p>
-          <strong>Valutazione:</strong> ⭐ {place.rating}/5
-        </p>
-        <p>
-          <strong>Descrizione:</strong> {place.description}
-        </p>
+        <p><strong>Continente:</strong> {place.continent}</p>
+        <p><strong>Nazione:</strong> {place.country}</p>
+        <p><strong>Regione:</strong> {place.region}</p>
+        <p><strong>Città:</strong> {place.city}</p>
+        <p><strong>Tipologia:</strong> {place.type}</p>
+        <p><strong>Affidabilità gluten free:</strong> {place.gfCategory}</p>
+        <p><strong>Indirizzo:</strong> {place.address}</p>
+        <p><strong>Valutazione:</strong> ⭐ {place.rating}/5</p>
+        <p><strong>Descrizione:</strong> {place.description}</p>
       </section>
 
       <section>
@@ -92,12 +74,11 @@ export default async function PlaceDetailPage({ params }: PlacePageProps) {
         )}
       </section>
 
-      <section>
-        <h2>Posizione</h2>
-        <p>
-          <strong>Coordinate:</strong> {place.latitude}, {place.longitude}
-        </p>
-      </section>
+      <PlaceMap
+        latitude={place.latitude}
+        longitude={place.longitude}
+        name={place.name}
+      />
 
       {place.notes && (
         <section>
