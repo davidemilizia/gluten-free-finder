@@ -1,1 +1,10 @@
-[]
+[][
+  {
+    "id": 1,
+    "placeSlug": "mama-eat-roma",
+    "imageUrl": "/images/placeholder-locale.jpg",
+    "caption": "Fotografia dimostrativa",
+    "userName": "Utente demo",
+    "approved": false
+  }
+]
