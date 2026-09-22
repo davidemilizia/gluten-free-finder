@@ -10,11 +10,20 @@ type ReviewFormProps = {
   onReviewSubmitted?: () => void;
 };
 
+type ExistingReview = {
+  id: number;
+  rating: number;
+  title: string;
+  comment: string;
+  approved: boolean;
+};
+
 export default function ReviewForm({
   placeSlug,
   onReviewSubmitted,
 }: ReviewFormProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [existingReview, setExistingReview] = useState<ExistingReview | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
@@ -26,25 +35,42 @@ export default function ReviewForm({
   useEffect(() => {
     let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    async function loadUserAndReview() {
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!active) return;
-      setUser(data.session?.user ?? null);
-      setCheckingSession(false);
-    });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!active) return;
-        setUser(session?.user ?? null);
+      const currentUser = sessionData.session?.user ?? null;
+      setUser(currentUser);
+
+      if (!currentUser) {
         setCheckingSession(false);
+        return;
       }
-    );
+
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("id, rating, title, comment, approved")
+        .eq("place_slug", placeSlug)
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        setErrorMessage(error.message);
+      } else if (data) {
+        setExistingReview(data);
+      }
+
+      setCheckingSession(false);
+    }
+
+    loadUserAndReview();
 
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [placeSlug]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,13 +84,17 @@ export default function ReviewForm({
 
     setLoading(true);
 
-    const { error } = await supabase.from("reviews").insert({
-      place_slug: placeSlug,
-      user_id: user.id,
-      rating,
-      title: title.trim(),
-      comment: comment.trim(),
-    });
+    const { data, error } = await supabase
+      .from("reviews")
+      .insert({
+        place_slug: placeSlug,
+        user_id: user.id,
+        rating,
+        title: title.trim(),
+        comment: comment.trim(),
+      })
+      .select("id, rating, title, comment, approved")
+      .single();
 
     setLoading(false);
 
@@ -77,17 +107,16 @@ export default function ReviewForm({
       return;
     }
 
+    setExistingReview(data);
     setTitle("");
     setComment("");
     setRating(5);
-    setMessage(
-      "Recensione inviata. Sarà visibile dopo l'approvazione dell'amministratore."
-    );
+    setMessage("Recensione inviata correttamente.");
     onReviewSubmitted?.();
   }
 
   if (checkingSession) {
-    return <p>Verifica account...</p>;
+    return <p>Verifica recensione dell&apos;utente...</p>;
   }
 
   if (!user) {
@@ -95,9 +124,29 @@ export default function ReviewForm({
       <section style={boxStyle}>
         <h2>Lascia una recensione</h2>
         <p>
-          Per pubblicare una valutazione devi prima <Link href="/login">accedere</Link>
-          {" "}oppure <Link href="/register">registrarti</Link>.
+          Per pubblicare una valutazione devi prima <Link href="/login">accedere</Link>{" "}
+          oppure <Link href="/register">registrarti</Link>.
         </p>
+      </section>
+    );
+  }
+
+  if (existingReview) {
+    return (
+      <section style={boxStyle}>
+        <h2>La tua recensione</h2>
+        <p aria-label={`${existingReview.rating} stelle su 5`}>
+          {"★".repeat(existingReview.rating)}
+          {"☆".repeat(5 - existingReview.rating)}
+        </p>
+        <h3>{existingReview.title}</h3>
+        <p>{existingReview.comment}</p>
+        <p style={existingReview.approved ? approvedStyle : pendingStyle}>
+          {existingReview.approved
+            ? "Recensione approvata e pubblicata."
+            : "Recensione inviata e in attesa di approvazione."}
+        </p>
+        <p>Ogni utente può inserire una sola recensione per locale.</p>
       </section>
     );
   }
@@ -167,7 +216,6 @@ const boxStyle = {
   borderRadius: "10px",
   background: "#fafafa",
 };
-
 const formStyle = { display: "grid", gap: "16px" };
 const fieldStyle = { display: "grid", gap: "6px", fontWeight: 700 };
 const inputStyle = {
@@ -199,3 +247,5 @@ const errorStyle = {
   background: "#fff1f1",
   color: "#7f1d1d",
 };
+const approvedStyle = { color: "#166534", fontWeight: 700 };
+const pendingStyle = { color: "#92400e", fontWeight: 700 };
