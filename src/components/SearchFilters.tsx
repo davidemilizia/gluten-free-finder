@@ -1,1 +1,163 @@
-"use client";import{useEffect,useState}from"react";import{useRouter,useSearchParams}from"next/navigation";import{supabase}from"@/lib/supabase-browser";type G={id:number;name:string};export default function SearchFilters(){const r=useRouter(),sp=useSearchParams();const[regions,setR]=useState<G[]>([]),[provinces,setP]=useState<G[]>([]),[cities,setC]=useState<G[]>([]),[region,setRegion]=useState(sp.get("region")||""),[province,setProvince]=useState(sp.get("province")||""),[city,setCity]=useState(sp.get("city")||"");useEffect(()=>{supabase.from("regions").select("id,name").eq("active",true).order("name").then(({data})=>setR((data??[])as G[]))},[]);useEffect(()=>{setP([]);setC([]);if(!region)return;supabase.from("regions").select("id").eq("name",region).single().then(async({data})=>{if(data){const{data:x}=await supabase.from("provinces").select("id,name").eq("region_id",data.id).eq("active",true).order("name");setP((x??[])as G[])}})},[region]);useEffect(()=>{setC([]);const p=provinces.find(x=>x.name===province);if(p)supabase.from("cities").select("id,name").eq("province_id",p.id).eq("active",true).order("name").then(({data})=>setC((data??[])as G[]))},[province,provinces]);function go(){const q=new URLSearchParams();if(region)q.set("region",region);if(province)q.set("province",province);if(city)q.set("city",city);r.push(`/places?${q}`)}return<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}><L t="Regione"><S v={region} set={v=>{setRegion(v);setProvince("");setCity("")}} a={regions} all="Tutte"/></L><L t="Città"><S v={province} set={v=>{setProvince(v);setCity("")}} a={provinces} all="Tutta la provincia"/></L><L t="Comune"><S v={city} set={setCity} a={cities} all="Tutti i comuni"/></L><button onClick={go}>Cerca</button></div>}function L({t,children}:{t:string;children:any}){return<label>{t}{children}</label>}function S({v,set,a,all}:{v:string;set:(x:string)=>void;a:G[];all:string}){return<select value={v} onChange={e=>set(e.target.value)} style={{display:"block",width:"100%",padding:9,marginTop:4}}><option value="">{all}</option>{a.map(x=><option key={x.id}>{x.name}</option>)}</select>}
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase-browser";
+
+type GeoItem = { id: number; name: string };
+type PlaceOption = {
+  continent?: string;
+  country?: string;
+  region?: string;
+  province?: string;
+  city?: string;
+  type?: string;
+};
+
+type Props = {
+  // Compatibilita con la Home esistente, che continua a passare places={searchPlaces}.
+  places?: PlaceOption[];
+};
+
+export default function SearchFilters({ places = [] }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [regions, setRegions] = useState<GeoItem[]>([]);
+  const [provinces, setProvinces] = useState<GeoItem[]>([]);
+  const [cities, setCities] = useState<GeoItem[]>([]);
+
+  const [region, setRegion] = useState(searchParams.get("region") ?? "");
+  const [province, setProvince] = useState(searchParams.get("province") ?? "");
+  const [city, setCity] = useState(searchParams.get("city") ?? "");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("regions")
+        .select("id,name")
+        .eq("active", true)
+        .order("name");
+      if (!cancelled) setRegions((data ?? []) as GeoItem[]);
+    })();
+    return () => { cancelled = true; };
+  }, [places]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setProvinces([]);
+    setCities([]);
+    if (!region) return;
+
+    void (async () => {
+      const { data: regionRow } = await supabase
+        .from("regions")
+        .select("id")
+        .eq("name", region)
+        .maybeSingle();
+      if (!regionRow) return;
+
+      const { data } = await supabase
+        .from("provinces")
+        .select("id,name")
+        .eq("region_id", regionRow.id)
+        .eq("active", true)
+        .order("name");
+      if (!cancelled) setProvinces((data ?? []) as GeoItem[]);
+    })();
+    return () => { cancelled = true; };
+  }, [region]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCities([]);
+    if (!province) return;
+
+    const selectedProvince = provinces.find((x) => x.name === province);
+    if (!selectedProvince) return;
+
+    void (async () => {
+      const { data } = await supabase
+        .from("cities")
+        .select("id,name")
+        .eq("province_id", selectedProvince.id)
+        .eq("active", true)
+        .order("name");
+      if (!cancelled) setCities((data ?? []) as GeoItem[]);
+    })();
+    return () => { cancelled = true; };
+  }, [province, provinces]);
+
+  function search() {
+    const params = new URLSearchParams();
+    if (region) params.set("region", region);
+    if (province) params.set("province", province);
+    if (city) params.set("city", city);
+    router.push(`/places?${params.toString()}`);
+  }
+
+  return (
+    <div style={grid}>
+      <label>
+        Regione
+        <Select
+          value={region}
+          onChange={(value) => {
+            setRegion(value);
+            setProvince("");
+            setCity("");
+          }}
+          items={regions}
+          empty="Tutte"
+        />
+      </label>
+
+      <label>
+        Città
+        <Select
+          value={province}
+          onChange={(value) => {
+            setProvince(value);
+            setCity("");
+          }}
+          items={provinces}
+          empty="Tutta la provincia"
+          disabled={!region}
+        />
+      </label>
+
+      <label>
+        Comune
+        <Select
+          value={city}
+          onChange={setCity}
+          items={cities}
+          empty="Tutti i comuni"
+          disabled={!province}
+        />
+      </label>
+
+      <button type="button" onClick={search} style={button}>Cerca</button>
+    </div>
+  );
+}
+
+function Select({ value, onChange, items, empty, disabled = false }: {
+  value: string;
+  onChange: (value: string) => void;
+  items: GeoItem[];
+  empty: string;
+  disabled?: boolean;
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} style={input}>
+      <option value="">{empty}</option>
+      {items.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+    </select>
+  );
+}
+
+const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, alignItems: "end" };
+const input = { display: "block", width: "100%", padding: 9, marginTop: 4, boxSizing: "border-box" as const };
+const button = { padding: "10px 16px", background: "#15803d", color: "white", border: 0, borderRadius: 7, fontWeight: 700 };
