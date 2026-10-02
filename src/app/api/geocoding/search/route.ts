@@ -47,8 +47,15 @@ export async function GET(request: NextRequest) {
       type: item.type,
       category: item.category,
       address: item.address ?? {},
-      website: item.extratags?.website || item.extratags?.contact\:website || "",
-      phone: item.extratags?.phone || item.extratags?.contact\:phone || "",
+     website:
+  item.extratags?.website ||
+  item.extratags?.["contact:website"] ||
+  "",
+
+phone:
+  item.extratags?.phone ||
+  item.extratags?.["contact:phone"] ||
+  "",
     }));
 
     return NextResponse.json({ results, attribution: "© OpenStreetMap contributors" }, {
