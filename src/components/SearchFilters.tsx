@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
 
-type GeoItem = { id: number; name: string };
 type PlaceOption = {
   continent?: string;
   country?: string;
@@ -12,152 +11,83 @@ type PlaceOption = {
   province?: string;
   city?: string;
   type?: string;
+  gf_category?: string;
 };
 
-type Props = {
-  // Compatibilita con la Home esistente, che continua a passare places={searchPlaces}.
-  places?: PlaceOption[];
-};
+type Props = { places?: PlaceOption[] };
+type GeoItem = { id: number; name: string };
 
 export default function SearchFilters({ places = [] }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const sp = useSearchParams();
 
-  const [regions, setRegions] = useState<GeoItem[]>([]);
+  // Mantiene i filtri gia presenti basandosi sui dati places passati dalla Home.
+  const regions = useMemo(() => unique(places.map(p => p.region)), [places]);
+  const types = useMemo(() => unique(places.map(p => p.type)), [places]);
+  const gfCategories = useMemo(() => unique(places.map(p => p.gf_category)), [places]);
+
+  const [region, setRegion] = useState(sp.get("region") ?? "");
+  const [province, setProvince] = useState(sp.get("province") ?? "");
+  const [city, setCity] = useState(sp.get("city") ?? "");
+  const [type, setType] = useState(sp.get("type") ?? "");
+  const [gfCategory, setGfCategory] = useState(sp.get("gf_category") ?? "");
+
   const [provinces, setProvinces] = useState<GeoItem[]>([]);
   const [cities, setCities] = useState<GeoItem[]>([]);
 
-  const [region, setRegion] = useState(searchParams.get("region") ?? "");
-  const [province, setProvince] = useState(searchParams.get("province") ?? "");
-  const [city, setCity] = useState(searchParams.get("city") ?? "");
-
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const { data } = await supabase
-        .from("regions")
-        .select("id,name")
-        .eq("active", true)
-        .order("name");
-      if (!cancelled) setRegions((data ?? []) as GeoItem[]);
-    })();
-    return () => { cancelled = true; };
-  }, [places]);
-
-  useEffect(() => {
-    let cancelled = false;
     setProvinces([]);
     setCities([]);
     if (!region) return;
-
+    let cancelled = false;
     void (async () => {
-      const { data: regionRow } = await supabase
-        .from("regions")
-        .select("id")
-        .eq("name", region)
-        .maybeSingle();
-      if (!regionRow) return;
-
-      const { data } = await supabase
-        .from("provinces")
-        .select("id,name")
-        .eq("region_id", regionRow.id)
-        .eq("active", true)
-        .order("name");
+      const { data: r } = await supabase.from("regions").select("id").eq("name", region).maybeSingle();
+      if (!r) return;
+      const { data } = await supabase.from("provinces").select("id,name").eq("region_id", r.id).eq("active", true).order("name");
       if (!cancelled) setProvinces((data ?? []) as GeoItem[]);
     })();
     return () => { cancelled = true; };
   }, [region]);
 
   useEffect(() => {
-    let cancelled = false;
     setCities([]);
     if (!province) return;
-
-    const selectedProvince = provinces.find((x) => x.name === province);
-    if (!selectedProvince) return;
-
+    const p = provinces.find(x => x.name === province);
+    if (!p) return;
+    let cancelled = false;
     void (async () => {
-      const { data } = await supabase
-        .from("cities")
-        .select("id,name")
-        .eq("province_id", selectedProvince.id)
-        .eq("active", true)
-        .order("name");
+      const { data } = await supabase.from("cities").select("id,name").eq("province_id", p.id).eq("active", true).order("name");
       if (!cancelled) setCities((data ?? []) as GeoItem[]);
     })();
     return () => { cancelled = true; };
   }, [province, provinces]);
 
   function search() {
-    const params = new URLSearchParams();
-    if (region) params.set("region", region);
-    if (province) params.set("province", province);
-    if (city) params.set("city", city);
-    router.push(`/places?${params.toString()}`);
+    const p = new URLSearchParams();
+    if (region) p.set("region", region);
+    if (province) p.set("province", province);
+    if (city) p.set("city", city);
+    if (type) p.set("type", type);
+    if (gfCategory) p.set("gf_category", gfCategory);
+    router.push(`/places?${p.toString()}`);
   }
 
   return (
     <div style={grid}>
-      <label>
-        Regione
-        <Select
-          value={region}
-          onChange={(value) => {
-            setRegion(value);
-            setProvince("");
-            setCity("");
-          }}
-          items={regions}
-          empty="Tutte"
-        />
-      </label>
-
-      <label>
-        Città
-        <Select
-          value={province}
-          onChange={(value) => {
-            setProvince(value);
-            setCity("");
-          }}
-          items={provinces}
-          empty="Tutta la provincia"
-          disabled={!region}
-        />
-      </label>
-
-      <label>
-        Comune
-        <Select
-          value={city}
-          onChange={setCity}
-          items={cities}
-          empty="Tutti i comuni"
-          disabled={!province}
-        />
-      </label>
-
+      <Filter label="Regione" value={region} onChange={v => { setRegion(v); setProvince(""); setCity(""); }} values={regions} empty="Tutte" />
+      <Filter label="Città" value={province} onChange={v => { setProvince(v); setCity(""); }} values={provinces.map(x => x.name)} empty="Tutta la provincia" disabled={!region} />
+      <Filter label="Comune" value={city} onChange={setCity} values={cities.map(x => x.name)} empty="Tutti i comuni" disabled={!province} />
+      {types.length > 0 && <Filter label="Tipologia" value={type} onChange={setType} values={types} empty="Tutte" />}
+      {gfCategories.length > 0 && <Filter label="Affidabilità GF" value={gfCategory} onChange={setGfCategory} values={gfCategories} empty="Tutte" />}
       <button type="button" onClick={search} style={button}>Cerca</button>
     </div>
   );
 }
 
-function Select({ value, onChange, items, empty, disabled = false }: {
-  value: string;
-  onChange: (value: string) => void;
-  items: GeoItem[];
-  empty: string;
-  disabled?: boolean;
-}) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} style={input}>
-      <option value="">{empty}</option>
-      {items.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
-    </select>
-  );
+function unique(values: Array<string | undefined>) { return [...new Set(values.filter((x): x is string => Boolean(x)))].sort((a,b)=>a.localeCompare(b,"it")); }
+function Filter({label,value,onChange,values,empty,disabled=false}:{label:string;value:string;onChange:(v:string)=>void;values:string[];empty:string;disabled?:boolean}) {
+  return <label>{label}<select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled} style={input}><option value="">{empty}</option>{values.map(v=><option key={v} value={v}>{v}</option>)}</select></label>;
 }
-
-const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, alignItems: "end" };
-const input = { display: "block", width: "100%", padding: 9, marginTop: 4, boxSizing: "border-box" as const };
-const button = { padding: "10px 16px", background: "#15803d", color: "white", border: 0, borderRadius: 7, fontWeight: 700 };
+const grid={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10,alignItems:"end"};
+const input={display:"block",width:"100%",boxSizing:"border-box" as const,padding:9,marginTop:5};
+const button={padding:"10px 16px",background:"#15803d",color:"white",border:0,borderRadius:7,fontWeight:700};
