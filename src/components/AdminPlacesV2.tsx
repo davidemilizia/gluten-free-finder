@@ -5,24 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import type { Place } from "@/types/place";
 
-const COUNTRIES: Record<string, string[]> = {
-  Europa: ["Italia"],
-};
-
-const REGIONS: Record<string, string[]> = {
-  Italia: [
-    "Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna",
-    "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche",
-    "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", "Toscana",
-    "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto",
-  ],
-};
-
-const CITIES: Record<string, string[]> = {
-  Lazio: ["Roma"], Lombardia: ["Milano"], Campania: ["Napoli"],
-  Toscana: ["Firenze"], Piemonte: ["Torino"], "Emilia-Romagna": ["Bologna"],
-  Liguria: ["Genova"], Sicilia: ["Palermo"], Puglia: ["Bari"], Veneto: ["Venezia"],
-};
+type GeoItem = { id: number; name: string };
 
 const TYPES = ["Ristorante", "Pizzeria", "Pasticceria", "Gelateria", "Bar", "Street Food", "Negozio Specializzato", "Supermercato", "Hotel", "B&B", "Agriturismo", "Altro"];
 const GF_LEVELS = ["Stato da verificare", "Gluten Free Certificato", "Gluten Free verificato dalla community", "Disponibilità Gluten Free", "Possibile contaminazione"];
@@ -51,6 +34,13 @@ export default function AdminPlacesV2() {
   const [status, setStatus] = useState("all");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [continents, setContinents] = useState<GeoItem[]>([]);
+  const [countries, setCountries] = useState<GeoItem[]>([]);
+  const [regions, setRegions] = useState<GeoItem[]>([]);
+  const [cities, setCities] = useState<GeoItem[]>([]);
+  const [continentId, setContinentId] = useState<number | null>(null);
+  const [countryId, setCountryId] = useState<number | null>(null);
+  const [regionId, setRegionId] = useState<number | null>(null);
 
   async function loadPlaces() {
     const { data, error } = await supabase.from("places").select("*").order("name");
@@ -65,9 +55,46 @@ export default function AdminPlacesV2() {
       const { data, error } = await supabase.rpc("is_admin");
       const ok = !error && data === true;
       setAllowed(ok);
-      if (ok) await loadPlaces();
+      if (ok) {
+        await loadPlaces();
+        const { data: geo } = await supabase.from("continents").select("id, name").eq("active", true).order("sort_order");
+        setContinents((geo ?? []) as GeoItem[]);
+      }
     })();
   }, []);
+
+  async function chooseContinent(id: number | null) {
+    setContinentId(id); setCountryId(null); setRegionId(null);
+    setCountries([]); setRegions([]); setCities([]);
+    const item = continents.find(x => x.id === id);
+    setField("continent", item?.name ?? ""); setField("country", ""); setField("region", ""); setField("city", "");
+    if (!id) return;
+    const { data } = await supabase.from("countries").select("id, name").eq("continent_id", id).eq("active", true).order("name");
+    setCountries((data ?? []) as GeoItem[]);
+  }
+
+  async function chooseCountry(id: number | null) {
+    setCountryId(id); setRegionId(null); setRegions([]); setCities([]);
+    const item = countries.find(x => x.id === id);
+    setField("country", item?.name ?? ""); setField("region", ""); setField("city", "");
+    if (!id) return;
+    const { data } = await supabase.from("regions").select("id, name").eq("country_id", id).eq("active", true).order("name");
+    setRegions((data ?? []) as GeoItem[]);
+  }
+
+  async function chooseRegion(id: number | null) {
+    setRegionId(id); setCities([]);
+    const item = regions.find(x => x.id === id);
+    setField("region", item?.name ?? ""); setField("city", "");
+    if (!id) return;
+    const { data } = await supabase.from("cities").select("id, name").eq("region_id", id).eq("active", true).order("name");
+    setCities((data ?? []) as GeoItem[]);
+  }
+
+  function chooseCity(id: number | null) {
+    const item = cities.find(x => x.id === id);
+    setField("city", item?.name ?? "");
+  }
 
   const filtered = useMemo(() => places.filter((p) => {
     const q = search.toLowerCase().trim();
@@ -80,7 +107,7 @@ export default function AdminPlacesV2() {
 
   function setField(key: string, value: any) { setForm((f: any) => ({ ...f, [key]: value })); }
   function setName(value: string) { setForm((f: any) => ({ ...f, name: value, slug: slugTouched ? f.slug : slugify(value) })); }
-  function reset() { setForm(EMPTY); setEditingId(null); setSlugTouched(false); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function reset() { setForm(EMPTY); setContinentId(null); setCountryId(null); setRegionId(null); setCountries([]); setRegions([]); setCities([]); setEditingId(null); setSlugTouched(false); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function edit(p: Place) { setForm(p); setEditingId(p.id); setSlugTouched(true); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
   async function save(event: FormEvent, publish: boolean) {
@@ -115,10 +142,10 @@ export default function AdminPlacesV2() {
         <Field label="Nome locale"><input value={form.name} onChange={e => setName(e.target.value)} required style={input}/></Field>
         <Field label="Slug"><input value={form.slug} onChange={e => {setSlugTouched(true);setField("slug",e.target.value)}} required style={input}/></Field>
         <div style={grid4}>
-          <Field label="Continente"><select value={form.continent} onChange={e=>{setField("continent",e.target.value);setField("country","");setField("region","");setField("city","")}} style={input}>{Object.keys(COUNTRIES).map(x=><option key={x}>{x}</option>)}</select></Field>
-          <Field label="Nazione"><select value={form.country} onChange={e=>{setField("country",e.target.value);setField("region","");setField("city","")}} style={input}><option value="">Seleziona</option>{(COUNTRIES[form.continent]??[]).map(x=><option key={x}>{x}</option>)}</select></Field>
-          <Field label="Regione"><select value={form.region} onChange={e=>{setField("region",e.target.value);setField("city","")}} style={input}><option value="">Seleziona</option>{(REGIONS[form.country]??[]).map(x=><option key={x}>{x}</option>)}</select></Field>
-          <Field label="Città"><select value={form.city} onChange={e=>setField("city",e.target.value)} style={input}><option value="">Seleziona</option>{(CITIES[form.region]??[]).map(x=><option key={x}>{x}</option>)}</select></Field>
+          <Field label="Continente"><select value={continentId ?? ""} onChange={e=>chooseContinent(e.target.value ? Number(e.target.value) : null)} style={input}><option value="">Seleziona</option>{continents.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+          <Field label="Nazione"><select value={countryId ?? ""} onChange={e=>chooseCountry(e.target.value ? Number(e.target.value) : null)} style={input} disabled={!continentId}><option value="">Seleziona</option>{countries.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+          <Field label="Regione"><select value={regionId ?? ""} onChange={e=>chooseRegion(e.target.value ? Number(e.target.value) : null)} style={input} disabled={!countryId}><option value="">Seleziona</option>{regions.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+          <Field label="Città"><select value={cities.find(x=>x.name===form.city)?.id ?? ""} onChange={e=>chooseCity(e.target.value ? Number(e.target.value) : null)} style={input} disabled={!regionId}><option value="">Seleziona</option>{cities.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
         </div>
         <Field label="Indirizzo"><input value={form.address} onChange={e=>setField("address",e.target.value)} required style={input} placeholder="Autocomplete online nella fase 2"/></Field>
         <div style={grid2}><Field label="Latitudine"><input type="number" step="any" value={form.latitude} onChange={e=>setField("latitude",e.target.value)} required style={input}/></Field><Field label="Longitudine"><input type="number" step="any" value={form.longitude} onChange={e=>setField("longitude",e.target.value)} required style={input}/></Field></div>
