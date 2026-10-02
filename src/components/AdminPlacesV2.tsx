@@ -6,181 +6,51 @@ import { supabase } from "@/lib/supabase-browser";
 import type { Place } from "@/types/place";
 
 type GeoItem = { id: number; name: string };
-
-const TYPES = ["Ristorante", "Pizzeria", "Pasticceria", "Gelateria", "Bar", "Street Food", "Negozio Specializzato", "Supermercato", "Hotel", "B&B", "Agriturismo", "Altro"];
-const GF_LEVELS = ["Stato da verificare", "Gluten Free Certificato", "Gluten Free verificato dalla community", "Disponibilità Gluten Free", "Possibile contaminazione"];
-
-const EMPTY = {
-  slug: "", name: "", continent: "Europa", country: "Italia", region: "", city: "",
-  type: "Ristorante", gf_category: "Stato da verificare", address: "", latitude: 0,
-  longitude: 0, phone: "", website: "", description: "", notes: "", is_demo: false,
-  verified: false, published: false, delivery_available: false, direct_delivery: false,
-  takeaway_available: false, just_eat_url: "", glovo_url: "", too_good_to_go_available: false,
-  too_good_to_go_url: "",
+type OnlineResult = {
+  placeId: number;
+  name: string;
+  displayName: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+  category: string;
+  website: string;
+  phone: string;
+  address: Record<string, string>;
 };
+const TYPES=["Ristorante","Pizzeria","Pasticceria","Gelateria","Bar","Street Food","Negozio Specializzato","Supermercato","Hotel","B&B","Agriturismo","Altro"];
+const GF_LEVELS=["Stato da verificare","Gluten Free Certificato","Gluten Free verificato dalla community","Disponibilità Gluten Free","Possibile contaminazione"];
+const EMPTY={slug:"",name:"",continent:"",country:"",region:"",city:"",type:"Ristorante",gf_category:"Stato da verificare",address:"",latitude:0,longitude:0,phone:"",website:"",description:"",notes:"",is_demo:false,verified:false,published:false,delivery_available:false,direct_delivery:false,takeaway_available:false,just_eat_url:"",glovo_url:"",too_good_to_go_available:false,too_good_to_go_url:""};
+function slugify(v:string){return v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
+function street(a:Record<string,string>){return [a.road||a.pedestrian||a.footway||a.street,a.house_number].filter(Boolean).join(" ")}
+function cityName(a:Record<string,string>){return a.city||a.town||a.village||a.municipality||""}
 
-function slugify(value: string) {
-  return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+export default function AdminPlacesV2(){
+ const[allowed,setAllowed]=useState<boolean|null>(null),[places,setPlaces]=useState<Place[]>([]),[form,setForm]=useState<any>(EMPTY),[editingId,setEditingId]=useState<number|null>(null),[slugTouched,setSlugTouched]=useState(false),[search,setSearch]=useState(""),[status,setStatus]=useState("all"),[message,setMessage]=useState(""),[saving,setSaving]=useState(false);
+ const[continents,setContinents]=useState<GeoItem[]>([]),[countries,setCountries]=useState<GeoItem[]>([]),[regions,setRegions]=useState<GeoItem[]>([]),[cities,setCities]=useState<GeoItem[]>([]);const[continentId,setContinentId]=useState<number|null>(null),[countryId,setCountryId]=useState<number|null>(null),[regionId,setRegionId]=useState<number|null>(null);
+ const[onlineQuery,setOnlineQuery]=useState(""),[onlineResults,setOnlineResults]=useState<OnlineResult[]>([]),[onlineLoading,setOnlineLoading]=useState(false),[onlineError,setOnlineError]=useState("");
+ async function loadPlaces(){const{data,error}=await supabase.from("places").select("*").order("name");if(error)setMessage(error.message);else setPlaces((data??[])as Place[])}
+ useEffect(()=>{(async()=>{const{data:s}=await supabase.auth.getSession();if(!s.session){setAllowed(false);return}const{data,error}=await supabase.rpc("is_admin");const ok=!error&&data===true;setAllowed(ok);if(ok){await loadPlaces();const{data:g,error:ge}=await supabase.from("continents").select("id,name,sort_order").eq("active",true).order("sort_order");if(ge)setMessage(ge.message);else setContinents((g??[])as any)}})()},[]);
+ function setField(k:string,v:any){setForm((f:any)=>({...f,[k]:v}))}function setName(v:string){setForm((f:any)=>({...f,name:v,slug:slugTouched?f.slug:slugify(v)}))}
+ async function chooseContinent(id:number|null){setContinentId(id);setCountryId(null);setRegionId(null);setCountries([]);setRegions([]);setCities([]);const x=continents.find(v=>v.id===id);setField("continent",x?.name??"");setField("country","");setField("region","");setField("city","");if(!id)return;const{data}=await supabase.from("countries").select("id,name").eq("continent_id",id).eq("active",true).order("name");setCountries((data??[])as GeoItem[])}
+ async function chooseCountry(id:number|null){setCountryId(id);setRegionId(null);setRegions([]);setCities([]);const x=countries.find(v=>v.id===id);setField("country",x?.name??"");setField("region","");setField("city","");if(!id)return;const{data}=await supabase.from("regions").select("id,name").eq("country_id",id).eq("active",true).order("name");setRegions((data??[])as GeoItem[])}
+ async function chooseRegion(id:number|null){setRegionId(id);setCities([]);const x=regions.find(v=>v.id===id);setField("region",x?.name??"");setField("city","");if(!id)return;const{data}=await supabase.from("cities").select("id,name").eq("region_id",id).eq("active",true).order("name");setCities((data??[])as GeoItem[])}
+ function chooseCity(id:number|null){setField("city",cities.find(v=>v.id===id)?.name??"")}
+ async function selectGeography(country:string,region:string,city:string){const ci=continents.find(x=>x.name==="Europa");if(ci){setContinentId(ci.id);setField("continent","Europa");const{data:cs}=await supabase.from("countries").select("id,name").eq("continent_id",ci.id).eq("active",true).order("name");const c=(cs??[])as GeoItem[];setCountries(c);const countryRow=c.find(x=>x.name.toLowerCase()===country.toLowerCase());if(countryRow){setCountryId(countryRow.id);setField("country",countryRow.name);const{data:rs}=await supabase.from("regions").select("id,name").eq("country_id",countryRow.id).eq("active",true).order("name");const r=(rs??[])as GeoItem[];setRegions(r);const regionRow=r.find(x=>x.name.toLowerCase()===region.toLowerCase());if(regionRow){setRegionId(regionRow.id);setField("region",regionRow.name);const{data:cts}=await supabase.from("cities").select("id,name").eq("region_id",regionRow.id).eq("active",true).order("name");const cc=(cts??[])as GeoItem[];setCities(cc);setField("city",cc.find(x=>x.name.toLowerCase()===city.toLowerCase())?.name||city)}}}}
+ async function searchOnline(){const q=onlineQuery.trim();if(q.length<3){setOnlineError("Inserisci almeno 3 caratteri.");return}setOnlineLoading(true);setOnlineError("");setOnlineResults([]);try{const r=await fetch(`/api/geocoding/search?q=${encodeURIComponent(q)}`);const j=await r.json();if(!r.ok)throw new Error(j.error||"Ricerca non disponibile");setOnlineResults(j.results??[])}catch(e:any){setOnlineError(e.message||"Errore ricerca")}finally{setOnlineLoading(false)}}
+ async function useOnline(r:OnlineResult){const a=r.address||{};const n=r.name||r.displayName.split(",")[0];setName(n);setForm((f:any)=>({...f,name:n,slug:slugTouched?f.slug:slugify(n),address:street(a)||r.displayName,latitude:r.latitude,longitude:r.longitude,phone:r.phone||f.phone,website:r.website||f.website}));await selectGeography(a.country||"",a.state||a.region||"",cityName(a));setOnlineResults([]);setOnlineQuery(n);setMessage("Dati OpenStreetMap applicati. Controllali e completali prima di salvare.")}
+ const filtered=useMemo(()=>places.filter(p=>{const q=search.toLowerCase().trim();const t=!q||[p.name,p.city,p.region,p.type].some(v=>v?.toLowerCase().includes(q));const st=status==="all"||(status==="published"&&p.published)||(status==="draft"&&!p.published)||(status==="verified"&&p.verified)||(status==="unverified"&&!p.verified);return t&&st}),[places,search,status]);
+ function reset(){setForm(EMPTY);setEditingId(null);setSlugTouched(false);setContinentId(null);setCountryId(null);setRegionId(null);setCountries([]);setRegions([]);setCities([]);setMessage("");scrollTo({top:0,behavior:"smooth"})}function edit(p:Place){setForm(p);setEditingId(p.id);setSlugTouched(true);setMessage("Per i dati geografici già salvati puoi usare la ricerca online oppure riselezionare i menu.");scrollTo({top:0,behavior:"smooth"})}
+ async function save(e:FormEvent,publish:boolean){e.preventDefault();setSaving(true);const payload={...form,published:publish,latitude:Number(form.latitude),longitude:Number(form.longitude)};delete payload.id;delete payload.created_at;delete payload.updated_at;const r=editingId?await supabase.from("places").update(payload).eq("id",editingId):await supabase.from("places").insert(payload);setSaving(false);if(r.error){setMessage(r.error.message);return}await loadPlaces();setForm(EMPTY);setEditingId(null);setMessage(publish?"Locale pubblicato.":"Locale salvato come bozza.")}
+ async function remove(p:Place){if(!confirm(`Eliminare definitivamente ${p.name}?`))return;const{error}=await supabase.from("places").delete().eq("id",p.id);if(error)setMessage(error.message);else loadPlaces()}
+ if(allowed===null)return<main style={page}>Verifica autorizzazioni...</main>;if(!allowed)return<main style={page}><h1>Accesso negato</h1></main>;
+ return <main style={page}><Link href="/">← Home</Link><h1>Pannello Admin Locali v2.2</h1>
+ <section style={{...section,background:"#f0fdf4"}}><h2>🔎 Cerca locale online</h2><p>Ricerca manuale tramite OpenStreetMap. Nessun autocomplete automatico.</p><div style={toolbar}><input value={onlineQuery} onChange={e=>setOnlineQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();searchOnline()}}} placeholder="Es. Mama Eat Roma" style={input}/><button type="button" onClick={searchOnline} disabled={onlineLoading} style={publish}>{onlineLoading?"Ricerca...":"Cerca"}</button></div>{onlineError&&<p style={{color:"#b91c1c"}}>{onlineError}</p>}<div style={{display:"grid",gap:"10px",marginTop:"14px"}}>{onlineResults.map(r=><article key={r.placeId} style={card}><div><strong>{r.name}</strong><div>{r.displayName}</div><small>{r.type||r.category}</small></div><button type="button" style={publish} onClick={()=>useOnline(r)}>Usa questi dati</button></article>)}</div><small>© OpenStreetMap contributors</small></section>
+ <form><Section title={editingId?"Modifica locale":"Nuovo locale"}><Field label="Nome locale"><input value={form.name} onChange={e=>setName(e.target.value)} required style={input}/></Field><Field label="Slug"><input value={form.slug} onChange={e=>{setSlugTouched(true);setField("slug",e.target.value)}} required style={input}/></Field><div style={grid4}><Geo label="Continente" value={continentId} disabled={false} items={continents} change={chooseContinent}/><Geo label="Nazione" value={countryId} disabled={!continentId} items={countries} change={chooseCountry}/><Geo label="Regione" value={regionId} disabled={!countryId} items={regions} change={chooseRegion}/><Geo label="Città" value={cities.find(x=>x.name===form.city)?.id??null} disabled={!regionId} items={cities} change={chooseCity}/></div><Field label="Indirizzo"><input value={form.address} onChange={e=>setField("address",e.target.value)} required style={input}/></Field><div style={grid2}><Field label="Latitudine"><input type="number" step="any" value={form.latitude} onChange={e=>setField("latitude",e.target.value)} style={input}/></Field><Field label="Longitudine"><input type="number" step="any" value={form.longitude} onChange={e=>setField("longitude",e.target.value)} style={input}/></Field></div></Section>
+ <Section title="Informazioni Gluten Free"><div style={grid2}><Field label="Tipologia"><select value={form.type} onChange={e=>setField("type",e.target.value)} style={input}>{TYPES.map(x=><option key={x}>{x}</option>)}</select></Field><Field label="Affidabilità"><select value={form.gf_category} onChange={e=>setField("gf_category",e.target.value)} style={input}>{GF_LEVELS.map(x=><option key={x}>{x}</option>)}</select></Field></div><Check label="Locale verificato" v={form.verified} c={v=>setField("verified",v)}/></Section>
+ <Section title="Contatti e servizi"><div style={grid2}><Field label="Telefono"><input value={form.phone} onChange={e=>setField("phone",e.target.value)} style={input}/></Field><Field label="Sito web"><input value={form.website} onChange={e=>setField("website",e.target.value)} style={input}/></Field></div><Check label="Consegna a domicilio" v={form.delivery_available} c={v=>setField("delivery_available",v)}/><Check label="Consegna diretta" v={form.direct_delivery} c={v=>setField("direct_delivery",v)}/><Check label="Ritiro al locale" v={form.takeaway_available} c={v=>setField("takeaway_available",v)}/><Field label="URL Just Eat"><input value={form.just_eat_url} onChange={e=>setField("just_eat_url",e.target.value)} style={input}/></Field><Field label="URL Glovo"><input value={form.glovo_url} onChange={e=>setField("glovo_url",e.target.value)} style={input}/></Field><Check label="Too Good To Go" v={form.too_good_to_go_available} c={v=>setField("too_good_to_go_available",v)}/>{form.too_good_to_go_available&&<Field label="URL Too Good To Go"><input value={form.too_good_to_go_url} onChange={e=>setField("too_good_to_go_url",e.target.value)} style={input}/></Field>}</Section>
+ <Section title="Testi e pubblicazione"><Field label="Descrizione pubblica"><textarea rows={5} value={form.description} onChange={e=>setField("description",e.target.value)} style={input}/></Field><Field label="Note amministratore"><textarea rows={4} value={form.notes} onChange={e=>setField("notes",e.target.value)} style={input}/></Field><Check label="Attività dimostrativa" v={form.is_demo} c={v=>setField("is_demo",v)}/><div style={actions}><button type="button" disabled={saving} onClick={(e:any)=>save(e,false)} style={draft}>Salva come bozza</button><button type="button" disabled={saving} onClick={(e:any)=>save(e,true)} style={publish}>Pubblica locale</button>{editingId&&<button type="button" onClick={reset}>Annulla</button>}</div></Section></form>{message&&<p><strong>{message}</strong></p>}
+ <section><h2>Gestione locali</h2><div style={toolbar}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cerca locale..." style={input}/><select value={status} onChange={e=>setStatus(e.target.value)} style={input}><option value="all">Tutti</option><option value="published">Pubblicati</option><option value="draft">Bozze</option><option value="verified">Verificati</option><option value="unverified">Da verificare</option></select></div><p>{filtered.length} locali</p>{filtered.map(p=><article key={p.id} style={card}><div><strong>{p.name}</strong><div>{p.city}, {p.region} · {p.type}</div></div><div style={actions}><Link href={`/places/${p.slug}`}>Apri</Link><button onClick={()=>edit(p)}>Modifica</button><button onClick={()=>remove(p)} style={{color:"#b91c1c"}}>Elimina</button></div></article>)}</section></main>
 }
-
-export default function AdminPlacesV2() {
-  const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [form, setForm] = useState<any>(EMPTY);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [slugTouched, setSlugTouched] = useState(false);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [continents, setContinents] = useState<GeoItem[]>([]);
-  const [countries, setCountries] = useState<GeoItem[]>([]);
-  const [regions, setRegions] = useState<GeoItem[]>([]);
-  const [cities, setCities] = useState<GeoItem[]>([]);
-  const [continentId, setContinentId] = useState<number | null>(null);
-  const [countryId, setCountryId] = useState<number | null>(null);
-  const [regionId, setRegionId] = useState<number | null>(null);
-
-  async function loadPlaces() {
-    const { data, error } = await supabase.from("places").select("*").order("name");
-    if (error) setMessage(error.message);
-    else setPlaces((data ?? []) as Place[]);
-  }
-
-  useEffect(() => {
-    (async () => {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) { setAllowed(false); return; }
-      const { data, error } = await supabase.rpc("is_admin");
-      const ok = !error && data === true;
-      setAllowed(ok);
-      if (ok) {
-        await loadPlaces();
-        const { data: geo } = await supabase.from("continents").select("id, name").eq("active", true).order("sort_order");
-        setContinents((geo ?? []) as GeoItem[]);
-      }
-    })();
-  }, []);
-
-  async function chooseContinent(id: number | null) {
-    setContinentId(id); setCountryId(null); setRegionId(null);
-    setCountries([]); setRegions([]); setCities([]);
-    const item = continents.find(x => x.id === id);
-    setField("continent", item?.name ?? ""); setField("country", ""); setField("region", ""); setField("city", "");
-    if (!id) return;
-    const { data } = await supabase.from("countries").select("id, name").eq("continent_id", id).eq("active", true).order("name");
-    setCountries((data ?? []) as GeoItem[]);
-  }
-
-  async function chooseCountry(id: number | null) {
-    setCountryId(id); setRegionId(null); setRegions([]); setCities([]);
-    const item = countries.find(x => x.id === id);
-    setField("country", item?.name ?? ""); setField("region", ""); setField("city", "");
-    if (!id) return;
-    const { data } = await supabase.from("regions").select("id, name").eq("country_id", id).eq("active", true).order("name");
-    setRegions((data ?? []) as GeoItem[]);
-  }
-
-  async function chooseRegion(id: number | null) {
-    setRegionId(id); setCities([]);
-    const item = regions.find(x => x.id === id);
-    setField("region", item?.name ?? ""); setField("city", "");
-    if (!id) return;
-    const { data } = await supabase.from("cities").select("id, name").eq("region_id", id).eq("active", true).order("name");
-    setCities((data ?? []) as GeoItem[]);
-  }
-
-  function chooseCity(id: number | null) {
-    const item = cities.find(x => x.id === id);
-    setField("city", item?.name ?? "");
-  }
-
-  const filtered = useMemo(() => places.filter((p) => {
-    const q = search.toLowerCase().trim();
-    const matchesText = !q || [p.name, p.city, p.region, p.type].some(v => v?.toLowerCase().includes(q));
-    const matchesStatus = status === "all" || (status === "published" && p.published) ||
-      (status === "draft" && !p.published) || (status === "verified" && p.verified) ||
-      (status === "unverified" && !p.verified);
-    return matchesText && matchesStatus;
-  }), [places, search, status]);
-
-  function setField(key: string, value: any) { setForm((f: any) => ({ ...f, [key]: value })); }
-  function setName(value: string) { setForm((f: any) => ({ ...f, name: value, slug: slugTouched ? f.slug : slugify(value) })); }
-  function reset() { setForm(EMPTY); setContinentId(null); setCountryId(null); setRegionId(null); setCountries([]); setRegions([]); setCities([]); setEditingId(null); setSlugTouched(false); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  function edit(p: Place) { setForm(p); setEditingId(p.id); setSlugTouched(true); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
-
-  async function save(event: FormEvent, publish: boolean) {
-    event.preventDefault(); setMessage(""); setSaving(true);
-    const payload = { ...form, published: publish, latitude: Number(form.latitude), longitude: Number(form.longitude) };
-    delete payload.id; delete payload.created_at; delete payload.updated_at;
-    const result = editingId
-      ? await supabase.from("places").update(payload).eq("id", editingId)
-      : await supabase.from("places").insert(payload);
-    setSaving(false);
-    if (result.error) { setMessage(result.error.message); return; }
-    setMessage(publish ? "Locale salvato e pubblicato." : "Locale salvato come bozza.");
-    setForm(EMPTY); setEditingId(null); setSlugTouched(false); await loadPlaces();
-  }
-
-  async function remove(p: Place) {
-    if (!window.confirm(`Eliminare definitivamente ${p.name}?`)) return;
-    const { error } = await supabase.from("places").delete().eq("id", p.id);
-    if (error) setMessage(error.message); else await loadPlaces();
-  }
-
-  if (allowed === null) return <main style={pageStyle}>Verifica autorizzazioni...</main>;
-  if (!allowed) return <main style={pageStyle}><h1>Accesso negato</h1><Link href="/">Torna alla home</Link></main>;
-
-  return <main style={pageStyle}>
-    <Link href="/">← Home</Link>
-    <h1>Pannello Admin Locali v2</h1>
-    <p>Inserisci i dati manualmente. La ricerca online e l'autocomplete dell'indirizzo saranno collegati nella fase Google Places.</p>
-
-    <form onSubmit={(e) => save(e, form.published)}>
-      <Section title={editingId ? "Modifica locale" : "Nuovo locale"}>
-        <Field label="Nome locale"><input value={form.name} onChange={e => setName(e.target.value)} required style={input}/></Field>
-        <Field label="Slug"><input value={form.slug} onChange={e => {setSlugTouched(true);setField("slug",e.target.value)}} required style={input}/></Field>
-        <div style={grid4}>
-          <Field label="Continente"><select value={continentId ?? ""} onChange={e=>chooseContinent(e.target.value ? Number(e.target.value) : null)} style={input}><option value="">Seleziona</option>{continents.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-          <Field label="Nazione"><select value={countryId ?? ""} onChange={e=>chooseCountry(e.target.value ? Number(e.target.value) : null)} style={input} disabled={!continentId}><option value="">Seleziona</option>{countries.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-          <Field label="Regione"><select value={regionId ?? ""} onChange={e=>chooseRegion(e.target.value ? Number(e.target.value) : null)} style={input} disabled={!countryId}><option value="">Seleziona</option>{regions.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-          <Field label="Città"><select value={cities.find(x=>x.name===form.city)?.id ?? ""} onChange={e=>chooseCity(e.target.value ? Number(e.target.value) : null)} style={input} disabled={!regionId}><option value="">Seleziona</option>{cities.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
-        </div>
-        <Field label="Indirizzo"><input value={form.address} onChange={e=>setField("address",e.target.value)} required style={input} placeholder="Autocomplete online nella fase 2"/></Field>
-        <div style={grid2}><Field label="Latitudine"><input type="number" step="any" value={form.latitude} onChange={e=>setField("latitude",e.target.value)} required style={input}/></Field><Field label="Longitudine"><input type="number" step="any" value={form.longitude} onChange={e=>setField("longitude",e.target.value)} required style={input}/></Field></div>
-      </Section>
-
-      <Section title="Informazioni Gluten Free">
-        <div style={grid2}><Field label="Tipologia"><select value={form.type} onChange={e=>setField("type",e.target.value)} style={input}>{TYPES.map(x=><option key={x}>{x}</option>)}</select></Field><Field label="Affidabilità"><select value={form.gf_category} onChange={e=>setField("gf_category",e.target.value)} style={input}>{GF_LEVELS.map(x=><option key={x}>{x}</option>)}</select></Field></div>
-        <Checkbox label="Locale verificato" checked={form.verified} onChange={v=>setField("verified",v)}/>
-      </Section>
-
-      <Section title="Contatti e servizi">
-        <div style={grid2}><Field label="Telefono"><input value={form.phone} onChange={e=>setField("phone",e.target.value)} style={input}/></Field><Field label="Sito web"><input value={form.website} onChange={e=>setField("website",e.target.value)} style={input}/></Field></div>
-        <Checkbox label="Consegna a domicilio" checked={form.delivery_available} onChange={v=>setField("delivery_available",v)}/>
-        <Checkbox label="Consegna diretta" checked={form.direct_delivery} onChange={v=>setField("direct_delivery",v)}/>
-        <Checkbox label="Ritiro al locale" checked={form.takeaway_available} onChange={v=>setField("takeaway_available",v)}/>
-        <Field label="URL Just Eat"><input value={form.just_eat_url} onChange={e=>setField("just_eat_url",e.target.value)} style={input}/></Field>
-        <Field label="URL Glovo"><input value={form.glovo_url} onChange={e=>setField("glovo_url",e.target.value)} style={input}/></Field>
-        <Checkbox label="Too Good To Go" checked={form.too_good_to_go_available} onChange={v=>setField("too_good_to_go_available",v)}/>
-        {form.too_good_to_go_available && <Field label="URL Too Good To Go"><input value={form.too_good_to_go_url} onChange={e=>setField("too_good_to_go_url",e.target.value)} style={input}/></Field>}
-      </Section>
-
-      <Section title="Testi e pubblicazione">
-        <Field label="Descrizione pubblica"><textarea rows={5} value={form.description} onChange={e=>setField("description",e.target.value)} style={input}/></Field>
-        <Field label="Note amministratore"><textarea rows={4} value={form.notes} onChange={e=>setField("notes",e.target.value)} style={input}/></Field>
-        <Checkbox label="Attività dimostrativa" checked={form.is_demo} onChange={v=>setField("is_demo",v)}/>
-        <div style={actions}><button type="button" disabled={saving} onClick={(e:any)=>save(e,false)} style={draftButton}>Salva come bozza</button><button type="button" disabled={saving} onClick={(e:any)=>save(e,true)} style={publishButton}>{editingId?"Salva e pubblica":"Pubblica locale"}</button>{editingId&&<button type="button" onClick={reset} style={cancelButton}>Annulla</button>}</div>
-      </Section>
-    </form>
-    {message && <p style={{fontWeight:700}}>{message}</p>}
-
-    <section style={{marginTop:"36px"}}><h2>Gestione locali</h2><div style={toolbar}><input placeholder="Cerca locale, città, regione..." value={search} onChange={e=>setSearch(e.target.value)} style={input}/><select value={status} onChange={e=>setStatus(e.target.value)} style={input}><option value="all">Tutti</option><option value="published">Pubblicati</option><option value="draft">Bozze</option><option value="verified">Verificati</option><option value="unverified">Da verificare</option></select></div><p>{filtered.length} locali</p><div style={{display:"grid",gap:"12px"}}>{filtered.map(p=><article key={p.id} style={card}><div><strong>{p.name}</strong><div>{p.city}, {p.region} · {p.type}</div><small>{p.published?"🟢 Pubblicato":"⚪ Bozza"} · {p.verified?"✅ Verificato":"🟠 Da verificare"}</small></div><div style={actions}><Link href={`/places/${p.slug}`}>Apri</Link><button onClick={()=>edit(p)}>Modifica</button><button onClick={()=>remove(p)} style={{color:"#b91c1c"}}>Elimina</button></div></article>)}</div></section>
-  </main>;
-}
-
-function Section({title,children}:{title:string;children:React.ReactNode}){return <section style={section}><h2>{title}</h2><div style={{display:"grid",gap:"14px"}}>{children}</div></section>}
-function Field({label,children}:{label:string;children:React.ReactNode}){return <label style={{fontWeight:700}}>{label}{children}</label>}
-function Checkbox({label,checked,onChange}:{label:string;checked:boolean;onChange:(v:boolean)=>void}){return <label><input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)}/> {label}</label>}
-const pageStyle={maxWidth:"1100px",margin:"0 auto",padding:"32px 20px",fontFamily:"Arial, sans-serif",lineHeight:1.5};const section={padding:"20px",margin:"18px 0",border:"1px solid #d6d6d6",borderRadius:"12px",background:"#fff"};const input={display:"block",width:"100%",boxSizing:"border-box" as const,padding:"10px",marginTop:"5px",border:"1px solid #aaa",borderRadius:"7px",font:"inherit"};const grid2={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"14px"};const grid4={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"14px"};const actions={display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap" as const};const draftButton={padding:"11px 16px",border:"1px solid #15803d",background:"white",color:"#15803d",borderRadius:"7px",fontWeight:700};const publishButton={padding:"11px 16px",border:0,background:"#15803d",color:"white",borderRadius:"7px",fontWeight:700};const cancelButton={padding:"11px 16px",border:"1px solid #aaa",background:"white",borderRadius:"7px"};const toolbar={display:"grid",gridTemplateColumns:"2fr 1fr",gap:"12px"};const card={padding:"16px",border:"1px solid #ddd",borderRadius:"10px",display:"flex",justifyContent:"space-between",gap:"16px",alignItems:"center",flexWrap:"wrap" as const};
+function Section({title,children}:{title:string;children:React.ReactNode}){return<section style={section}><h2>{title}</h2><div style={{display:"grid",gap:"14px"}}>{children}</div></section>}function Field({label,children}:{label:string;children:React.ReactNode}){return<label style={{fontWeight:700}}>{label}{children}</label>}function Check({label,v,c}:{label:string;v:boolean;c:(x:boolean)=>void}){return<label><input type="checkbox" checked={v} onChange={e=>c(e.target.checked)}/> {label}</label>}function Geo({label,value,items,disabled,change}:{label:string;value:number|null;items:GeoItem[];disabled:boolean;change:(x:number|null)=>void}){return<Field label={label}><select value={value??""} disabled={disabled} onChange={e=>change(e.target.value?Number(e.target.value):null)} style={input}><option value="">Seleziona</option>{items.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>}
+const page={maxWidth:"1100px",margin:"0 auto",padding:"32px 20px",fontFamily:"Arial,sans-serif",lineHeight:1.5};const section={padding:"20px",margin:"18px 0",border:"1px solid #d6d6d6",borderRadius:"12px"};const input={display:"block",width:"100%",boxSizing:"border-box" as const,padding:"10px",marginTop:"5px",border:"1px solid #aaa",borderRadius:"7px",font:"inherit"};const grid2={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:"14px"};const grid4={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:"14px"};const toolbar={display:"grid",gridTemplateColumns:"minmax(0,2fr) minmax(150px,1fr)",gap:"12px",alignItems:"end"};const actions={display:"flex",gap:"10px",alignItems:"center",flexWrap:"wrap" as const};const publish={padding:"10px 16px",background:"#15803d",color:"white",border:0,borderRadius:"7px",fontWeight:700};const draft={padding:"10px 16px",background:"white",color:"#15803d",border:"1px solid #15803d",borderRadius:"7px",fontWeight:700};const card={padding:"14px",margin:"8px 0",border:"1px solid #ddd",borderRadius:"9px",display:"flex",justifyContent:"space-between",gap:"14px",alignItems:"center",flexWrap:"wrap" as const};
