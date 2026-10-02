@@ -1,5 +1,5 @@
-import AdminPlaces from "@/components/AdminPlaces";
+import AdminPlacesV2 from "@/components/AdminPlacesV2";
 
 export default function Page() {
-  return <AdminPlaces />;
+  return <AdminPlacesV2 />;
 }
