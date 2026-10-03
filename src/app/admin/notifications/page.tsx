@@ -1,1 +1,1 @@
-
+import AdminNotifications from"@/components/AdminNotifications";export default function Page(){return <main style={{maxWidth:900,margin:"0 auto",padding:30}}><h1>Notifiche amministratori</h1><AdminNotifications/></main>}
