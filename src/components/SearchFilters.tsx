@@ -1,7 +1,199 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
-import {useRouter,useSearchParams} from "next/navigation";
-import {supabase} from "@/lib/supabase-browser";
-type Place={continent?:string;country?:string;region?:string;province?:string;city?:string;type?:string;gf_category?:string};type G={id:number;name:string};
-export default function SearchFilters({places=[]}:{places?:Place[]}){const router=useRouter(),sp=useSearchParams();const list=(key:keyof Place)=>[...new Set(places.map(x=>x[key]).filter((x):x is string=>Boolean(x)))].sort((a,b)=>a.localeCompare(b,"it"));const regions=useMemo(()=>list("region"),[places]),types=useMemo(()=>list("type"),[places]),gf=useMemo(()=>list("gf_category"),[places]);const[region,setRegion]=useState(sp.get("region")||""),[province,setProvince]=useState(sp.get("province")||""),[city,setCity]=useState(sp.get("city")||""),[type,setType]=useState(sp.get("type")||""),[cat,setCat]=useState(sp.get("gf_category")||"");const[provinces,setProvinces]=useState<G[]>([]),[cities,setCities]=useState<G[]>([]);
-useEffect(()=>{setProvinces([]);setCities([]);if(!region)return;void(async()=>{const{data:r}=await supabase.from("regions").select("id").eq("name",region).maybeSingle();if(!r)return;const{data}=await supabase.from("provinces").select("id,name").eq("region_id",r.id).eq("active",true).order("name");setProvinces((data??[])as G[])})()},[region]);useEffect(()=>{setCities([]);const p=provinces.find(x=>x.name===province);if(!p)return;void(async()=>{const{data}=await supabase.from("cities").select("id,name").eq("province_id",p.id).eq("active",true).order("name");setCities((data??[])as G[])})()},[province,provinces]);function go(){const p=new URLSearchParams();if(region)p.set("region",region);if(province)p.set("province",province);if(city)p.set("city",city);if(type)p.set("type",type);if(cat)p.set("gf_category",cat);router.push(`/places?${p}`)}return <div style={wrap}><F l="Regione" v={region} s={v=>{setRegion(v);setProvince("");setCity("")}} a={regions} e="Tutte"/><F l="Città / Provincia" v={province} s={v=>{setProvince(v);setCity("")}} a={provinces.map(x=>x.name)} e="Tutte" d={!region}/><F l="Comune" v={city} s={setCity} a={cities.map(x=>x.name)} e="Tutti" d={!province}/><F l="Tipologia" v={type} s={setType} a={types} e="Tutte"/><F l="Affidabilità GF" v={cat} s={setCat} a={gf} e="Tutte"/><button onClick={go} style={btn}>Cerca locali</button></div>};function F({l,v,s,a,e,d=false}:{l:string;v:string;s:(x:string)=>void;a:string[];e:string;d?:boolean}){return <label style={lab}>{l}<select value={v} onChange={x=>s(x.target.value)} disabled={d} style={inp}><option value="">{e}</option>{a.map(x=><option key={x}>{x}</option>)}</select></label>}const wrap={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:12,alignItems:"end"},lab={fontWeight:700,fontSize:14},inp={display:"block",width:"100%",boxSizing:"border-box" as const,padding:"11px 10px",marginTop:6,border:"1px solid #cbd5e1",borderRadius:8,background:"white"},btn={padding:"12px 18px",border:0,borderRadius:8,background:"#15803d",color:"white",fontWeight:800,cursor:"pointer"};
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+type PlaceOption = {
+  continent?: string | null;
+  country?: string | null;
+  region?: string | null;
+  province?: string | null;
+  city?: string | null;
+  type?: string | null;
+  gf_category?: string | null;
+};
+
+type Props = { places?: PlaceOption[] };
+
+function clean(value?: string | null) {
+  return value?.trim() ?? "";
+}
+
+function unique(values: Array<string | null | undefined>) {
+  return [...new Set(values.map(clean).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "it")
+  );
+}
+
+export default function SearchFilters({ places = [] }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [continent, setContinent] = useState(searchParams.get("continent") ?? "");
+  const [country, setCountry] = useState(searchParams.get("country") ?? "");
+  const [region, setRegion] = useState(searchParams.get("region") ?? "");
+  const [province, setProvince] = useState(searchParams.get("province") ?? "");
+  const [city, setCity] = useState(searchParams.get("city") ?? "");
+  const [type, setType] = useState(searchParams.get("type") ?? "");
+  const [gfCategory, setGfCategory] = useState(
+    searchParams.get("gf_category") ?? ""
+  );
+
+  // Le opzioni sono costruite dai locali pubblicati. In questo modo Milano,
+  // Torino, Avellino e ogni nuova provincia/comune compaiono anche se le
+  // tabelle geografiche di supporto non sono ancora completamente popolate.
+  const continents = useMemo(
+    () => unique(places.map((place) => place.continent)),
+    [places]
+  );
+
+  const countries = useMemo(
+    () =>
+      unique(
+        places
+          .filter((place) => !continent || clean(place.continent) === continent)
+          .map((place) => place.country)
+      ),
+    [places, continent]
+  );
+
+  const regions = useMemo(
+    () =>
+      unique(
+        places
+          .filter(
+            (place) =>
+              (!continent || clean(place.continent) === continent) &&
+              (!country || clean(place.country) === country)
+          )
+          .map((place) => place.region)
+      ),
+    [places, continent, country]
+  );
+
+  const provinces = useMemo(
+    () =>
+      unique(
+        places
+          .filter(
+            (place) =>
+              (!continent || clean(place.continent) === continent) &&
+              (!country || clean(place.country) === country) &&
+              (!region || clean(place.region) === region)
+          )
+          .map((place) => place.province)
+      ),
+    [places, continent, country, region]
+  );
+
+  const cities = useMemo(
+    () =>
+      unique(
+        places
+          .filter(
+            (place) =>
+              (!continent || clean(place.continent) === continent) &&
+              (!country || clean(place.country) === country) &&
+              (!region || clean(place.region) === region) &&
+              (!province || clean(place.province) === province)
+          )
+          .map((place) => place.city)
+      ),
+    [places, continent, country, region, province]
+  );
+
+  const types = useMemo(() => unique(places.map((place) => place.type)), [places]);
+  const gfCategories = useMemo(
+    () => unique(places.map((place) => place.gf_category)),
+    [places]
+  );
+
+  // Se un valore presente nella URL non è più compatibile con il livello
+  // precedente, viene azzerato invece di lasciare menu incoerenti.
+  useEffect(() => {
+    if (country && !countries.includes(country)) {
+      setCountry("");
+      setRegion("");
+      setProvince("");
+      setCity("");
+    }
+  }, [countries, country]);
+
+  useEffect(() => {
+    if (region && !regions.includes(region)) {
+      setRegion("");
+      setProvince("");
+      setCity("");
+    }
+  }, [regions, region]);
+
+  useEffect(() => {
+    if (province && !provinces.includes(province)) {
+      setProvince("");
+      setCity("");
+    }
+  }, [provinces, province]);
+
+  useEffect(() => {
+    if (city && !cities.includes(city)) setCity("");
+  }, [cities, city]);
+
+  function search() {
+    const params = new URLSearchParams();
+    if (continent) params.set("continent", continent);
+    if (country) params.set("country", country);
+    if (region) params.set("region", region);
+    if (province) params.set("province", province);
+    if (city) params.set("city", city);
+    if (type) params.set("type", type);
+    if (gfCategory) params.set("gf_category", gfCategory);
+    router.push(`/places?${params.toString()}`);
+  }
+
+  return (
+    <div style={styles.grid}>
+      <Filter label="Continente" value={continent} values={continents} empty="Tutti" onChange={(value) => {
+        setContinent(value); setCountry(""); setRegion(""); setProvince(""); setCity("");
+      }} />
+      <Filter label="Nazione" value={country} values={countries} empty="Tutte" disabled={!continent && continents.length > 0} onChange={(value) => {
+        setCountry(value); setRegion(""); setProvince(""); setCity("");
+      }} />
+      <Filter label="Regione" value={region} values={regions} empty="Tutte" disabled={!country && countries.length > 0} onChange={(value) => {
+        setRegion(value); setProvince(""); setCity("");
+      }} />
+      <Filter label="Città / Provincia" value={province} values={provinces} empty="Tutte" disabled={!region} onChange={(value) => {
+        setProvince(value); setCity("");
+      }} />
+      <Filter label="Comune" value={city} values={cities} empty="Tutti" disabled={!province} onChange={setCity} />
+      <Filter label="Tipologia" value={type} values={types} empty="Tutte" onChange={setType} />
+      <Filter label="Affidabilità GF" value={gfCategory} values={gfCategories} empty="Tutte" onChange={setGfCategory} />
+      <button type="button" onClick={search} style={styles.button}>Cerca locali</button>
+    </div>
+  );
+}
+
+function Filter({ label, value, values, empty, onChange, disabled = false }: {
+  label: string;
+  value: string;
+  values: string[];
+  empty: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label style={styles.label}>
+      {label}
+      <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} style={styles.select}>
+        <option value="">{empty}</option>
+        {values.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>
+    </label>
+  );
+}
+
+const styles = {
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: 12, alignItems: "end" },
+  label: { fontWeight: 700, fontSize: 14 },
+  select: { display: "block", width: "100%", boxSizing: "border-box" as const, padding: "11px 10px", marginTop: 6, border: "1px solid #cbd5e1", borderRadius: 8, background: "white" },
+  button: { padding: "12px 18px", border: 0, borderRadius: 8, background: "#15803d", color: "white", fontWeight: 800, cursor: "pointer" },
+};
