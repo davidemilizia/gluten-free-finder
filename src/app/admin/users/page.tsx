@@ -1,1 +1,1 @@
-
+import AdminUsers from"@/components/AdminUsers";export default function Page(){return <main style={{maxWidth:960,margin:"0 auto",padding:30}}><h1>Utenti registrati</h1><p>Controlla conferma email, ruolo, stato e attività degli iscritti.</p><AdminUsers/></main>}
