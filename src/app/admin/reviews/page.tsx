@@ -1,1 +1,1 @@
-
+import Link from"next/link";export default function Page(){return <main style={{maxWidth:900,margin:"0 auto",padding:30}}><h1>Moderazione recensioni</h1><p>Gestisci contenuto, prova visita e pubblicazione.</p><Link href="/admin/review-verifications">Apri il pannello completo delle recensioni →</Link></main>}
