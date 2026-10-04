@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
 import { ITALIAN_PROVINCES } from "@/lib/italian-provinces";
-
+import AdminActivityDashboard from "@/components/admin/AdminActivityDashboard";
 type G = { id: number; name: string };
 type BP = { id: string; title: string; url: string; coordinates: number[]; address: any; categories: string[] };
 
