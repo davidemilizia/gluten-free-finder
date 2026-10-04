@@ -132,10 +132,10 @@ export default function AdminReviewsPage() {
   return (
     <main style={{ maxWidth: 1000, margin: "0 auto", padding: "30px 18px 60px" }}>
       <nav style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
-      <nav style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
-    /admin/places← Pannello Admin</Link>
-    /admin/review-verificationsVerifiche visita</Link>
-      </nav>
+   <nav style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
+  /admin/places← Pannello Admin</Link>
+  /admin/review-verificationsVerifiche visita</Link>
+</nav>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
