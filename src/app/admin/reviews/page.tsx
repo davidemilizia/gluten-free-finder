@@ -36,6 +36,7 @@ export default function AdminReviewsPage() {
     setMessage("");
 
     const { data: adminResult, error: adminError } = await supabase.rpc("is_admin");
+
     if (adminError || adminResult !== true) {
       setAuthorized(false);
       setLoading(false);
@@ -51,9 +52,7 @@ export default function AdminReviewsPage() {
         .select("id,title,comment,rating,approved,created_at,user_id")
         .eq("approved", false)
         .order("created_at", { ascending: false }),
-      supabase
-        .from("review_verifications")
-        .select("review_id,status"),
+      supabase.from("review_verifications").select("review_id,status"),
     ]);
 
     if (reviewsResult.error) {
@@ -104,6 +103,7 @@ export default function AdminReviewsPage() {
     const confirmed = window.confirm(
       `Eliminare definitivamente la recensione #${review.id} “${review.title || "Senza titolo"}”?`
     );
+
     if (!confirmed) return;
 
     setBusyId(review.id);
@@ -123,34 +123,63 @@ export default function AdminReviewsPage() {
 
   function verificationBadge(reviewId: number) {
     const status = verificationByReview.get(reviewId);
-    if (status === "verified") return { label: "Visita verificata", color: "#166534", bg: "#dcfce7" };
-    if (status === "pending") return { label: "Prova in attesa", color: "#854d0e", bg: "#fef9c3" };
-    if (status === "rejected") return { label: "Prova rifiutata", color: "#991b1b", bg: "#fee2e2" };
+
+    if (status === "verified") {
+      return { label: "Visita verificata", color: "#166534", bg: "#dcfce7" };
+    }
+    if (status === "pending") {
+      return { label: "Prova in attesa", color: "#854d0e", bg: "#fef9c3" };
+    }
+    if (status === "rejected") {
+      return { label: "Prova rifiutata", color: "#991b1b", bg: "#fee2e2" };
+    }
+
     return { label: "Nessuna prova", color: "#475569", bg: "#f1f5f9" };
   }
 
   return (
     <main style={{ maxWidth: 1000, margin: "0 auto", padding: "30px 18px 60px" }}>
       <nav style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
-   <nav style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 18 }}>
-  /admin/places← Pannello Admin</Link>
-  /admin/review-verificationsVerifiche visita</Link>
-</nav>
+        <Link href="/admin/places">← Pannello Admin</Link>
+        <Link href="/admin/review-verifications">Verifiche visita</Link>
+      </nav>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
         <div>
           <h1 style={{ marginBottom: 6 }}>Moderazione recensioni</h1>
           <p style={{ marginTop: 0, color: "#475569" }}>
             Approva o elimina le recensioni non ancora pubblicate.
           </p>
         </div>
-        <button onClick={() => void load()} disabled={loading || busyId !== null} style={buttonSecondary}>
+
+        <button
+          onClick={() => void load()}
+          disabled={loading || busyId !== null}
+          style={buttonSecondary}
+        >
           Aggiorna
         </button>
       </div>
 
       {message && (
-        <div role="status" style={{ margin: "18px 0", padding: 12, border: "1px solid #cbd5e1", borderRadius: 8, background: "#f8fafc" }}>
+        <div
+          role="status"
+          style={{
+            margin: "18px 0",
+            padding: 12,
+            border: "1px solid #cbd5e1",
+            borderRadius: 8,
+            background: "#f8fafc",
+          }}
+        >
           {message}
         </div>
       )}
@@ -162,7 +191,15 @@ export default function AdminReviewsPage() {
       )}
 
       {!loading && authorized && reviews.length === 0 && (
-        <div style={{ marginTop: 24, padding: 24, border: "1px solid #d1fae5", borderRadius: 10, background: "#ecfdf5" }}>
+        <div
+          style={{
+            marginTop: 24,
+            padding: 24,
+            border: "1px solid #d1fae5",
+            borderRadius: 10,
+            background: "#ecfdf5",
+          }}
+        >
           Nessuna recensione in attesa di approvazione.
         </div>
       )}
@@ -171,29 +208,85 @@ export default function AdminReviewsPage() {
         {reviews.map((review) => {
           const badge = verificationBadge(review.id);
           const date = new Date(review.created_at);
+
           return (
-            <article key={review.id} style={{ border: "1px solid #dbe3ea", borderRadius: 12, padding: 18, background: "#fff", boxShadow: "0 2px 10px rgba(15,23,42,.05)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <article
+              key={review.id}
+              style={{
+                border: "1px solid #dbe3ea",
+                borderRadius: 12,
+                padding: 18,
+                background: "#fff",
+                boxShadow: "0 2px 10px rgba(15,23,42,.05)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
                 <div>
-                  <div style={{ color: "#64748b", fontSize: 13 }}>Recensione #{review.id}</div>
-                  <h2 style={{ margin: "5px 0 8px", fontSize: 21 }}>{review.title || "Senza titolo"}</h2>
+                  <div style={{ color: "#64748b", fontSize: 13 }}>
+                    Recensione #{review.id}
+                  </div>
+                  <h2 style={{ margin: "5px 0 8px", fontSize: 21 }}>
+                    {review.title || "Senza titolo"}
+                  </h2>
                 </div>
-                <span style={{ alignSelf: "flex-start", padding: "6px 10px", borderRadius: 999, color: badge.color, background: badge.bg, fontWeight: 700, fontSize: 13 }}>
+
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    color: badge.color,
+                    background: badge.bg,
+                    fontWeight: 700,
+                    fontSize: 13,
+                  }}
+                >
                   {badge.label}
                 </span>
               </div>
 
-              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{review.comment || "Nessun commento."}</p>
-              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", color: "#475569", fontSize: 14 }}>
+              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                {review.comment || "Nessun commento."}
+              </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 18,
+                  flexWrap: "wrap",
+                  color: "#475569",
+                  fontSize: 14,
+                }}
+              >
                 <span>Valutazione: {review.rating ?? "-"}/5</span>
-                <span>Data: {Number.isNaN(date.getTime()) ? review.created_at : date.toLocaleString("it-IT")}</span>
+                <span>
+                  Data: {Number.isNaN(date.getTime())
+                    ? review.created_at
+                    : date.toLocaleString("it-IT")}
+                </span>
               </div>
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
-                <button onClick={() => void approve(review)} disabled={busyId !== null} style={buttonApprove}>
+                <button
+                  onClick={() => void approve(review)}
+                  disabled={busyId !== null}
+                  style={buttonApprove}
+                >
                   {busyId === review.id ? "Operazione..." : "Approva e pubblica"}
                 </button>
-                <button onClick={() => void remove(review)} disabled={busyId !== null} style={buttonDelete}>
+
+                <button
+                  onClick={() => void remove(review)}
+                  disabled={busyId !== null}
+                  style={buttonDelete}
+                >
                   Elimina
                 </button>
               </div>
