@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     const [authResult, profilesResult, reviewsResult, legalResult] = await Promise.all([
       admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      admin.from("profiles").select("id,display_name,role,account_status,created_at"),
+      admin.from("profiles").select("id,display_name,role,account_status"),
       admin.from("reviews").select("user_id"),
       admin.from("legal_acceptances").select("user_id,marketing_consent"),
     ]);
@@ -74,9 +74,21 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ users });
-  } catch (error) {
+  } catch (error: unknown) {
+    const candidate = error as { message?: string; details?: string; hint?: string; code?: string };
+    const message =
+      candidate?.message ||
+      candidate?.details ||
+      (error instanceof Error ? error.message : "Errore caricamento utenti.");
+
+    console.error("/api/admin/users", error);
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Errore caricamento utenti." },
+      {
+        error: message,
+        code: candidate?.code ?? null,
+        hint: candidate?.hint ?? null,
+      },
       { status: 500 }
     );
   }
