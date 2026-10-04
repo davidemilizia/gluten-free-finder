@@ -12,7 +12,6 @@ type Review = {
   approved: boolean;
   created_at: string;
   user_id?: string | null;
-  place_id?: number | string | null;
 };
 
 type Verification = {
@@ -49,7 +48,7 @@ export default function AdminReviewsPage() {
     const [reviewsResult, verificationsResult] = await Promise.all([
       supabase
         .from("reviews")
-        .select("id,title,comment,rating,approved,created_at,user_id,place_id")
+        .select("id,title,comment,rating,approved,created_at,user_id")
         .eq("approved", false)
         .order("created_at", { ascending: false }),
       supabase
@@ -187,7 +186,6 @@ export default function AdminReviewsPage() {
               <div style={{ display: "flex", gap: 18, flexWrap: "wrap", color: "#475569", fontSize: 14 }}>
                 <span>Valutazione: {review.rating ?? "-"}/5</span>
                 <span>Data: {Number.isNaN(date.getTime()) ? review.created_at : date.toLocaleString("it-IT")}</span>
-                {review.place_id != null && <span>Locale: {String(review.place_id)}</span>}
               </div>
 
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 18 }}>
