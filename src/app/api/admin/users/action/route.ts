@@ -36,6 +36,7 @@ async function authorizeAdmin(request: NextRequest) {
 
 type ActionBody = {
   userId?: string;
+  id?: string;
   action?: "approve" | "reject" | "suspend" | "reactivate" | "promote" | "demote";
 };
 
@@ -46,11 +47,10 @@ export async function POST(request: NextRequest) {
     const { admin, currentUser } = authorized;
 
     const body = (await request.json()) as ActionBody;
-    if (!body.userId || !body.action) {
+    const targetId = body.userId || body.id;
+    if (!targetId || !body.action) {
       return NextResponse.json({ error: "Dati azione mancanti." }, { status: 400 });
     }
-
-    const targetId = body.userId;
     const selfAction = targetId === currentUser.id;
 
     if (selfAction && ["suspend", "reject", "demote"].includes(body.action)) {
