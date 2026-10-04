@@ -117,7 +117,7 @@ export default function AdminReviewsPage() {
         .select("id,review_id,proof_path,status,reviewed_at")
         .in("review_id", reviewIds),
       supabase
-        .from("review_media")
+        .from("review_photos")
         .select("id,review_id,storage_path")
         .in("review_id", reviewIds)
         .order("id", { ascending: true }),
@@ -168,7 +168,7 @@ export default function AdminReviewsPage() {
 
   async function openPublicPhoto(item: ReviewMedia) {
     setMessage("");
-    const { data } = supabase.storage.from("review-media").getPublicUrl(item.storage_path);
+    const { data } = supabase.storage.from("review-photos").getPublicUrl(item.storage_path);
     if (!data.publicUrl) {
       setMessage("Impossibile aprire la fotografia.");
       return;
