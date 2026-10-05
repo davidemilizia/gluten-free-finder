@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase-browser";
 import RatingSummary from "@/components/RatingSummary";
 import ReviewForm from "@/components/ReviewForm";
 import PublicReviewMedia from "@/components/PublicReviewMedia";
+import PublicOwnerReply from "@/components/PublicOwnerReply";
 
 type PublicReview = {
   id: number;
