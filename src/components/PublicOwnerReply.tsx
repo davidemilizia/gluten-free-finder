@@ -1,0 +1,3 @@
+"use client";
+import {useEffect,useState} from "react";import {supabase} from "@/lib/supabase-browser";
+export default function PublicOwnerReply({reviewId}:{reviewId:number}){const[reply,setReply]=useState<string|null>(null);useEffect(()=>{supabase.from("owner_review_replies").select("reply").eq("review_id",reviewId).eq("status","approved").maybeSingle().then(({data})=>setReply(data?.reply||null))},[reviewId]);if(!reply)return null;return <aside style={{marginTop:14,padding:14,borderLeft:"4px solid #15803d",background:"#f0fdf4"}}><strong>Risposta del locale · Proprietario verificato</strong><p>{reply}</p></aside>}
