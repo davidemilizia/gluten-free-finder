@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
-
+import ForgotPasswordLink from "@/components/ForgotPasswordLink";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
