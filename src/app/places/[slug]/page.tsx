@@ -30,7 +30,7 @@ export default async function Page({ params }: Props) {
 
   return (
     <main style={pageStyle}>
-      /places← Torna ai locali</Link>
+      <Link href="/places">← Torna ai locali</Link>
 
       <h1>{place.name}</h1>
 
@@ -39,7 +39,7 @@ export default async function Page({ params }: Props) {
       </p>
 
       <p>
-        {`/places/${place.slug}/claim`}
+        <Link href={`/places/${place.slug}/claim`}>
           Sei il proprietario o il responsabile? Rivendica questo locale
         </Link>
       </p>
@@ -65,7 +65,7 @@ export default async function Page({ params }: Props) {
 
         {place.phone ? (
           <p>
-            {`tel:${place.phone}`}{place.phone}</a>
+            <a href={`tel:${place.phone}`}>{place.phone}</a>
           </p>
         ) : (
           <p>Telefono non disponibile.</p>
@@ -73,7 +73,7 @@ export default async function Page({ params }: Props) {
 
         {place.website && (
           <p>
-            {place.website}
+            <a href={place.website} target="_blank" rel="noreferrer">
               Visita il sito
             </a>
           </p>
