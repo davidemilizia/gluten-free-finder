@@ -1,0 +1,4 @@
+"use client";
+import {useEffect,useState} from "react";import Link from "next/link";import {supabase} from "@/lib/supabase-browser";
+type Owner={place_slug:string;active:boolean};
+export default function Page(){const[rows,setRows]=useState<Owner[]>([]),[msg,setMsg]=useState("");useEffect(()=>{(async()=>{const{data:{user}}=await supabase.auth.getUser();if(!user)return setMsg("Accedi per usare l'area proprietario.");const{data,error}=await supabase.from("place_owners").select("place_slug,active").eq("user_id",user.id).eq("active",true);if(error)setMsg(error.message);else setRows((data||[]) as Owner[])})()},[]);return <main style={{maxWidth:900,margin:"0 auto",padding:30}}><h1>Area proprietario</h1>{rows.map(x=><article key={x.place_slug}><h2>{x.place_slug}</h2><Link href={`/owner/places/${x.place_slug}`}>Gestisci locale</Link></article>)}{msg&&<p>{msg}</p>}</main>}
