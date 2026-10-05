@@ -71,6 +71,8 @@ export default function LoginPage() {
         </button>
       </form>
 
+      <ForgotPasswordLink />
+      
       <p>
         Non hai un account? <Link href="/register">Registrati</Link>
       </p>
