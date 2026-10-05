@@ -1,1 +1,10 @@
-
+"use client";
+import {useEffect,useState} from "react";import {supabase} from "@/lib/supabase-browser";
+type Claim={id:number;place_slug:string;user_id:string;claimant_role:string;business_email:string|null;business_phone:string|null;message:string|null;proof_path:string;status:string;created_at:string};
+export default function Page(){const[rows,setRows]=useState<Claim[]>([]),[msg,setMsg]=useState(""),[ok,setOk]=useState<boolean|null>(null);
+ async function load(){const{data:a}=await supabase.rpc("is_admin");if(a!==true){setOk(false);return}setOk(true);const{data,error}=await supabase.from("place_claims").select("*").eq("status","pending").order("created_at",{ascending:false});if(error)setMsg(error.message);else setRows((data||[]) as Claim[])}
+ useEffect(()=>{void load()},[]);
+ async function proof(r:Claim){const{data,error}=await supabase.storage.from("place-claim-proofs").createSignedUrl(r.proof_path,300);if(error)setMsg(error.message);else window.open(data.signedUrl,"_blank","noopener,noreferrer")}
+ async function act(r:Claim,status:"approved"|"rejected"){const{data:{user}}=await supabase.auth.getUser();const u=await supabase.from("place_claims").update({status,reviewed_by:user?.id,reviewed_at:new Date().toISOString()}).eq("id",r.id);if(u.error)return setMsg(u.error.message);if(status==="approved"){const o=await supabase.from("place_owners").upsert({place_slug:r.place_slug,user_id:r.user_id,claim_id:r.id,active:true,verified_by:user?.id},{onConflict:"place_slug,user_id"});if(o.error)return setMsg(o.error.message)}await load()}
+ if(ok===null)return <main>Verifica autorizzazioni...</main>;if(!ok)return <main><h1>Accesso negato</h1></main>;
+ return <main style={{maxWidth:960,margin:"0 auto",padding:30}}><h1>Rivendicazioni locali</h1>{rows.map(r=><article key={r.id} style={{border:"1px solid #ddd",padding:18,borderRadius:10,marginBottom:14}}><h2>{r.place_slug}</h2><p>Ruolo: {r.claimant_role}</p><p>{r.business_email} {r.business_phone}</p><p>{r.message}</p><button onClick={()=>proof(r)}>Apri prova privata</button> <button onClick={()=>act(r,"approved")}>Approva</button> <button onClick={()=>act(r,"rejected")}>Rifiuta</button></article>)}{!rows.length&&<p>Nessuna richiesta in attesa.</p>}{msg&&<p>{msg}</p>}</main>}
