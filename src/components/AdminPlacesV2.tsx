@@ -2,11 +2,41 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
 import { ITALIAN_PROVINCES } from "@/lib/italian-provinces";
 import AdminActivityDashboard from "@/components/admin/AdminActivityDashboard";
 
 type G = { id: number; name: string };
+type PlaceAdminRow = {
+  id: number;
+  slug: string;
+  name: string;
+  continent: string;
+  country: string;
+  region: string;
+  province: string;
+  city: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+  gf_category: string;
+  phone: string;
+  website: string;
+  description: string;
+  notes: string;
+  verified: boolean;
+  published: boolean;
+  delivery_available: boolean;
+  direct_delivery: boolean;
+  takeaway_available: boolean;
+  just_eat_url: string;
+  glovo_url: string;
+  too_good_to_go_available: boolean;
+  too_good_to_go_url: string;
+  is_demo: boolean;
+};
 type BP = {
   id: string;
   title: string;
@@ -57,11 +87,18 @@ const pick = (...x: any[]) =>
   x.find((v) => typeof v === "string" && v.trim())?.trim() || "";
 
 const normalizeGeoName = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+function isoForCountryName(value: string) {
+  const x = normalizeGeoName(value);
+  const aliases: Record<string,string> = {
+    italia: "IT", italy: "IT", netherlands: "NL", nederland: "NL",
+    "united states": "US", "stati uniti": "US", poland: "PL", polonia: "PL",
+    belgium: "BE", belgio: "BE", france: "FR", francia: "FR",
+    germany: "DE", germania: "DE", spain: "ES", spagna: "ES"
+  };
+  return aliases[x] || "";
+}
 
 function provinceCode(s: string) {
   return s.match(/\b\d{5}\s+[^,]+?\s+([A-Z]{2})(?:\b|,)/)?.[1] || "";
@@ -134,6 +171,12 @@ export default function AdminPlacesV2() {
   const [results, setResults] = useState<BP[]>([]);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const [places, setPlaces] = useState<PlaceAdminRow[]>([]);
+  const [placeSearch, setPlaceSearch] = useState("");
+  const [placeFilter, setPlaceFilter] = useState<"all" | "draft" | "published">("all");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingOriginalSlug, setEditingOriginalSlug] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -153,6 +196,7 @@ export default function AdminPlacesV2() {
           .eq("active", true)
           .order("name");
         setContinents((data ?? []) as G[]);
+        await loadPlaces(searchParams.get("edit") || undefined);
       }
     })();
   }, []);
@@ -218,70 +262,42 @@ export default function AdminPlacesV2() {
     setCities((data ?? []) as G[]);
   }
 
-  async function syncGeography(
-    continentName: string,
-    countryName: string,
-    countryIso2: string,
-    regionName: string,
-    provinceName: string,
-    cityName: string
-  ) {
-    let countryRow: any = null;
-
-    if (countryIso2) {
-      const { data, error } = await supabase
-        .from("countries")
-        .select("id,name,continent_id,iso2")
-        .eq("iso2", countryIso2.toUpperCase())
-        .maybeSingle();
-      if (error) { setMsg(`Errore nazione: ${error.message}`); return false; }
-      countryRow = data;
-    }
-
-    if (!countryRow) {
-      const { data, error } = await supabase.from("countries")
-        .select("id,name,continent_id,iso2").eq("active", true);
-      if (error) { setMsg(`Errore nazioni: ${error.message}`); return false; }
-      countryRow = (data ?? []).find((item: any) => normalizeGeoName(item.name) === normalizeGeoName(countryName));
-    }
-    if (!countryRow) { setMsg(`Nazione ${countryName || countryIso2 || "sconosciuta"} non trovata.`); return false; }
-
-    const { data: continentRow, error: continentError } = await supabase.from("continents")
-      .select("id,name").eq("id", countryRow.continent_id).maybeSingle();
-    if (continentError) { setMsg(`Errore continente: ${continentError.message}`); return false; }
-    if (!continentRow) { setMsg(`Continente ${continentName} non trovato.`); return false; }
-
-    const { data: countryRows, error: countryError } = await supabase.from("countries")
-      .select("id,name").eq("continent_id", continentRow.id).eq("active", true).order("name");
-    if (countryError) { setMsg(`Errore nazioni: ${countryError.message}`); return false; }
-    const countryList = (countryRows ?? []) as G[];
-
-    const { data: regionRows, error: regionError } = await supabase.from("regions")
-      .select("id,name").eq("country_id", countryRow.id).eq("active", true).order("name");
-    if (regionError) { setMsg(`Errore regioni: ${regionError.message}`); return false; }
-    const regionList = (regionRows ?? []) as G[];
-    const regionRow = regionList.find(item => normalizeGeoName(item.name) === normalizeGeoName(regionName));
-    if (!regionRow) { setMsg(`Regione ${regionName} non trovata.`); return false; }
-
-    const { data: provinceRows, error: provinceError } = await supabase.from("provinces")
-      .select("id,name").eq("region_id", regionRow.id).eq("active", true).order("name");
-    if (provinceError) { setMsg(`Errore città / province: ${provinceError.message}`); return false; }
-    const provinceList = (provinceRows ?? []) as G[];
-    const provinceRow = provinceList.find(item => normalizeGeoName(item.name) === normalizeGeoName(provinceName));
-    if (!provinceRow) { setMsg(`Città / Provincia ${provinceName} non trovata.`); return false; }
-
-    const { data: cityRows, error: cityError } = await supabase.from("cities")
-      .select("id,name").eq("province_id", provinceRow.id).eq("active", true).order("name");
-    if (cityError) { setMsg(`Errore comuni: ${cityError.message}`); return false; }
-    const cityList = (cityRows ?? []) as G[];
-    const cityRow = cityList.find(item => normalizeGeoName(item.name) === normalizeGeoName(cityName));
-    if (!cityRow) { setMsg(`Comune / Località ${cityName} non trovato.`); return false; }
-
-    setCountries(countryList); setRegions(regionList); setProvinces(provinceList); setCities(cityList);
-    setIds({ continent: continentRow.id, country: countryRow.id, region: regionRow.id, province: provinceRow.id });
-    setForm((current: any) => ({ ...current, continent: continentRow.name, country: countryRow.name, region: regionRow.name, province: provinceRow.name, city: cityRow.name }));
-    return { continent: continentRow.name, country: countryRow.name, region: regionRow.name, province: provinceRow.name, city: cityRow.name };
+  async function syncGeography(continentName:string,countryName:string,countryIso2:string,regionName:string,provinceName:string,cityName:string) {
+    let countryRow:any=null;
+    const iso=(countryIso2 || isoForCountryName(countryName)).toUpperCase();
+    if(iso){const q=await supabase.from("countries").select("id,name,continent_id,iso2").eq("iso2",iso).maybeSingle();if(q.error){setMsg(q.error.message);return false}countryRow=q.data}
+    if(!countryRow){const q=await supabase.from("countries").select("id,name,continent_id,iso2").eq("active",true);if(q.error){setMsg(q.error.message);return false}countryRow=(q.data??[]).find((x:any)=>normalizeGeoName(x.name)===normalizeGeoName(countryName))}
+    if(!countryRow){setMsg(`Nazione ${countryName} non trovata.`);return false}
+    const cq=await supabase.from("continents").select("id,name").eq("id",countryRow.continent_id).maybeSingle();if(cq.error||!cq.data){setMsg(cq.error?.message||`Continente ${continentName} non trovato.`);return false}const continentRow=cq.data;
+    const countriesQ=await supabase.from("countries").select("id,name").eq("continent_id",continentRow.id).eq("active",true).order("name");
+    const regionsQ=await supabase.from("regions").select("id,name").eq("country_id",countryRow.id).eq("active",true).order("name");if(regionsQ.error){setMsg(regionsQ.error.message);return false}
+    const regionList=(regionsQ.data??[]) as G[];const regionRow=regionList.find(x=>normalizeGeoName(x.name)===normalizeGeoName(regionName));if(!regionRow){setMsg(`Regione ${regionName} non trovata.`);return false}
+    const provincesQ=await supabase.from("provinces").select("id,name").eq("region_id",regionRow.id).eq("active",true).order("name");if(provincesQ.error){setMsg(provincesQ.error.message);return false}
+    const provinceList=(provincesQ.data??[]) as G[];const provinceRow=provinceList.find(x=>normalizeGeoName(x.name)===normalizeGeoName(provinceName));if(!provinceRow){setMsg(`Città / Provincia ${provinceName} non trovata.`);return false}
+    const citiesQ=await supabase.from("cities").select("id,name").eq("province_id",provinceRow.id).eq("active",true).order("name");if(citiesQ.error){setMsg(citiesQ.error.message);return false}
+    const cityList=(citiesQ.data??[]) as G[];const cityRow=cityList.find(x=>normalizeGeoName(x.name)===normalizeGeoName(cityName));if(!cityRow){setMsg(`Comune / Località ${cityName} non trovato.`);return false}
+    setContinents((current)=>current.length?current:[continentRow]);setCountries((countriesQ.data??[]) as G[]);setRegions(regionList);setProvinces(provinceList);setCities(cityList);setIds({continent:continentRow.id,country:countryRow.id,region:regionRow.id,province:provinceRow.id});
+    setForm((current:any)=>({...current,continent:continentRow.name,country:countryRow.name,region:regionRow.name,province:provinceRow.name,city:cityRow.name}));
+    return true;
   }
+
+  async function loadPlaces(openSlug?: string) {
+    const { data, error } = await supabase.from("places").select("*").order("name");
+    if (error) { setMsg(error.message); return; }
+    const list=(data??[]) as PlaceAdminRow[]; setPlaces(list);
+    if(openSlug){const row=list.find(x=>x.slug===openSlug);if(row) await editPlace(row)}
+  }
+
+  async function editPlace(row: PlaceAdminRow) {
+    setEditingId(row.id);setEditingOriginalSlug(row.slug);setMsg("");
+    setForm({...EMPTY,...row});
+    const iso=isoForCountryName(row.country);
+    await supabase.rpc("ensure_geography_global",{p_continent:row.continent,p_country:row.country,p_country_iso2:iso||null,p_region:row.region,p_province:row.province||row.city,p_province_code:null,p_city:row.city,p_lat:row.latitude,p_lon:row.longitude});
+    await syncGeography(row.continent,row.country,iso,row.region,row.province||row.city,row.city);
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+
+  function resetEditor(){setEditingId(null);setEditingOriginalSlug("");setForm(EMPTY);setIds({});setCountries([]);setRegions([]);setProvinces([]);setCities([]);setMsg("")}
 
   async function search() {
     setLoading(true);
@@ -484,17 +500,12 @@ export default function AdminPlacesV2() {
       }
 
       const synced = await syncGeography(
-        finalContinent,
-        finalCountry,
-        finalIso2,
-        finalRegion,
-        finalProvince,
-        finalCity
+        finalContinent, finalCountry, finalIso2, finalRegion, finalProvince, finalCity
       );
       if (!synced) return;
 
       setMsg(
-        `Geografia sincronizzata: ${synced.continent} → ${synced.country} → ${synced.region} → ${synced.province} → ${synced.city}. Controlla i valori prima di pubblicare.`
+        `Geografia sincronizzata: ${finalContinent} → ${finalCountry} → ${finalRegion} → ${finalProvince} → ${finalCity}. Controlla i valori prima di pubblicare.`
       );
       setResults([]);
     } finally {
@@ -503,33 +514,17 @@ export default function AdminPlacesV2() {
   }
 
   async function save(pub: boolean) {
-    if (
-      !form.continent ||
-      !form.country ||
-      !form.region ||
-      !form.province ||
-      !form.city
-    ) {
-      setMsg(
-        "Completa Continente, Nazione, Regione / Stato, Città / Provincia e Comune / Località."
-      );
-      return;
-    }
-
-    const { error } = await supabase.from("places").insert({
-      ...form,
-      published: pub,
-      latitude: Number(form.latitude),
-      longitude: Number(form.longitude),
-    });
-
-    setMsg(
-      error
-        ? error.message
-        : pub
-          ? "Locale pubblicato."
-          : "Locale salvato come bozza."
-    );
+    if(!form.name||!form.slug||!form.continent||!form.country||!form.region||!form.province||!form.city){setMsg("Completa nome, slug e tutta la geografia.");return}
+    setLoading(true);setMsg("");
+    const payload={...form,published:pub,latitude:Number(form.latitude),longitude:Number(form.longitude)};
+    const result=editingId
+      ? await supabase.from("places").update(payload).eq("id",editingId)
+      : await supabase.from("places").insert(payload);
+    setLoading(false);
+    if(result.error){setMsg(result.error.message);return}
+    setMsg(editingId ? (pub?"Locale aggiornato e pubblicato.":"Bozza aggiornata.") : (pub?"Locale pubblicato.":"Locale salvato come bozza."));
+    await loadPlaces();
+    if(!editingId) resetEditor();
   }
 
   if (allowed === null) {
@@ -544,7 +539,7 @@ export default function AdminPlacesV2() {
     <main style={page}>
       <Link href="/">← Home</Link>
 
-      <h1>Pannello Admin Locali v2.10.5 internazionale</h1>
+      <h1>Pannello Admin Locali v2.15 bozze e modifica</h1>
 
       <AdminActivityDashboard />
 
@@ -584,7 +579,7 @@ export default function AdminPlacesV2() {
       </section>
 
       <section style={section}>
-        <h2>Nuovo locale</h2>
+        <h2>{editingId ? `Modifica locale: ${form.name}` : "Nuovo locale"}</h2>
 
         <Field t="Nome">
           <input
@@ -637,6 +632,14 @@ export default function AdminPlacesV2() {
           />
         </div>
 
+        <div style={grid}>
+          <Field t="Tipologia"><select value={form.type} onChange={(e)=>f("type",e.target.value)} style={input}><option>Ristorante</option><option>Pizzeria</option><option>Pasticceria</option><option>Bar</option><option>Negozio Specializzato</option><option>Hotel</option><option>Altro</option></select></Field>
+          <Field t="Affidabilità GF"><select value={form.gf_category} onChange={(e)=>f("gf_category",e.target.value)} style={input}><option>Stato da verificare</option><option>Disponibilità Gluten Free</option><option>Gluten Free verificato dalla community</option><option>Gluten Free Certificato</option></select></Field>
+        </div>
+
+        <Field t="Descrizione pubblica"><textarea rows={4} value={form.description} onChange={(e)=>f("description",e.target.value)} style={input}/></Field>
+        <Field t="Note amministratore"><textarea rows={3} value={form.notes} onChange={(e)=>f("notes",e.target.value)} style={input}/></Field>
+
         <Field t="Indirizzo">
           <input
             value={form.address}
@@ -680,10 +683,28 @@ export default function AdminPlacesV2() {
         </div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
-          <button onClick={() => save(false)}>Salva bozza</button>
-          <button onClick={() => save(true)} style={btn}>
-            Pubblica locale
-          </button>
+          <button onClick={() => save(false)} disabled={loading}>{editingId ? "Aggiorna bozza" : "Salva bozza"}</button>
+          <button onClick={() => save(true)} style={btn} disabled={loading}>{editingId ? "Aggiorna e pubblica" : "Pubblica locale"}</button>
+          {editingId && <button onClick={resetEditor}>Annulla modifica</button>}
+        </div>
+      </section>
+
+      <section style={section}>
+        <h2>Gestione locali</h2>
+        <div style={grid}>
+          <input value={placeSearch} onChange={(e)=>setPlaceSearch(e.target.value)} placeholder="Cerca nome, città o slug" style={input}/>
+          <select value={placeFilter} onChange={(e)=>setPlaceFilter(e.target.value as any)} style={input}>
+            <option value="all">Tutti</option><option value="draft">Bozze</option><option value="published">Pubblicati</option>
+          </select>
+        </div>
+        <div style={{display:"grid",gap:10,marginTop:15}}>
+          {places.filter((row)=>{
+            const matches=!placeSearch.trim()||`${row.name} ${row.city} ${row.slug}`.toLowerCase().includes(placeSearch.toLowerCase());
+            const status=placeFilter==="all"||(placeFilter==="draft"?!row.published:row.published);return matches&&status;
+          }).map((row)=><article key={row.id} style={card}>
+            <div><b>{row.name}</b><div>{row.city} · {row.province} · {row.region}</div><small>{row.published?"Pubblicato":"Bozza"} · {row.verified?"Verificato":"Da verificare"}</small></div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button onClick={()=>editPlace(row)}>Modifica</button>{row.published&&<Link href={`/places/${row.slug}`} target="_blank">Apri</Link>}{!row.published&&<button onClick={async()=>{await editPlace(row);setMsg("Bozza caricata. Controlla i dati e premi Aggiorna e pubblica.")}}>Carica bozza</button>}</div>
+          </article>)}
         </div>
       </section>
 
