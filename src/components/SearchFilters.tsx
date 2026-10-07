@@ -192,8 +192,8 @@ function Filter({ label, value, values, empty, onChange, disabled = false }: {
 }
 
 const styles = {
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: 12, alignItems: "end" },
-  label: { fontWeight: 700, fontSize: 14 },
-  select: { display: "block", width: "100%", boxSizing: "border-box" as const, padding: "11px 10px", marginTop: 6, border: "1px solid #cbd5e1", borderRadius: 8, background: "white" },
-  button: { padding: "12px 18px", border: 0, borderRadius: 8, background: "#15803d", color: "white", fontWeight: 800, cursor: "pointer" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, alignItems: "end" },
+  label: { fontWeight: 800, fontSize: 13, color: "#31463a" },
+  select: { display: "block", width: "100%", boxSizing: "border-box" as const, padding: "13px 11px", marginTop: 7, border: "1px solid #d9e4dc", borderRadius: 11, background: "white" },
+  button: { minHeight: "47px", padding: "12px 20px", border: 0, borderRadius: 11, background: "#15803d", color: "white", fontWeight: 800, cursor: "pointer" },
 };

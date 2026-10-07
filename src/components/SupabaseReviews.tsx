@@ -80,8 +80,8 @@ export default function SupabaseReviews({ placeSlug }: Props) {
     <>
       <RatingSummary average={average} count={reviews.length} />
 
-      <section>
-        <h2>Recensioni approvate</h2>
+      <section className="card review-section">
+        <div><div className="eyebrow">Community</div><h2 className="section-title">Recensioni approvate</h2></div>
 
         {loading && <p>Caricamento recensioni...</p>}
         {errorMessage && <p style={{ color: "#7f1d1d" }}>{errorMessage}</p>}
@@ -106,6 +106,7 @@ export default function SupabaseReviews({ placeSlug }: Props) {
               </small>
 
               <PublicReviewMedia reviewId={review.id} />
+              <PublicOwnerReply reviewId={review.id} />
             </article>
           ))}
         </div>
@@ -117,8 +118,8 @@ export default function SupabaseReviews({ placeSlug }: Props) {
 }
 
 const reviewStyle = {
-  padding: "18px",
-  border: "1px solid #d6d6d6",
-  borderRadius: "10px",
+  padding: "20px",
+  border: "1px solid #d9e4dc",
+  borderRadius: "16px",
   background: "#fff",
 };
