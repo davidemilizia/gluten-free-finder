@@ -25,7 +25,6 @@ export default function Header() {
         const { data: isAdmin } = await supabase.rpc("is_admin");
 
         if (!active) return;
-
         setAdmin(isAdmin === true);
       } else {
         setAdmin(false);
@@ -47,40 +46,32 @@ export default function Header() {
   return (
     <header style={headerStyle}>
       <div style={innerStyle}>
-        /
+        <Link href="/" style={brandStyle}>
           🍃 Gluten Free Finder
         </Link>
 
         <nav style={navStyle}>
-          /Home</Link>
-
-          /placesLocali</Link>
+          <Link href="/">Home</Link>
+          <Link href="/places">Locali</Link>
 
           {user && <SuggestPlaceLink />}
 
           {admin && (
             <>
-              /admin/placesAdmin locali</Link>
-
-              /admin/reviewsRecensioni</Link>
-
-              /admin/usersUtenti</Link>
-
-              /admin/place-suggestions
-                Suggerimenti
-              </Link>
-
-              /admin/notificationsNotifiche</Link>
+              <Link href="/admin/places">Admin locali</Link>
+              <Link href="/admin/reviews">Recensioni</Link>
+              <Link href="/admin/users">Utenti</Link>
+              <Link href="/admin/place-suggestions">Suggerimenti</Link>
+              <Link href="/admin/notifications">Notifiche</Link>
             </>
           )}
 
           {user ? (
-            /accountIl mio account</Link>
+            <Link href="/account">Il mio account</Link>
           ) : (
             <>
-              /loginAccedi</Link>
-
-              /register
+              <Link href="/login">Accedi</Link>
+              <Link href="/register" style={registerButtonStyle}>
                 Registrati
               </Link>
             </>
