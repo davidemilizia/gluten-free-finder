@@ -1,22 +1,6 @@
-import type { Metadata } from "next";
+import type {Metadata} from "next";
 import Header from "@/components/Header";
-
-export const metadata: Metadata = {
-  title: "Gluten Free Finder",
-  description: "Trova locali e negozi gluten free",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="it">
-      <body style={{ margin: 0, background: "#ffffff", color: "#111827" }}>
-        <Header />
-        {children}
-      </body>
-    </html>
-  );
-}
+import Footer from "@/components/layout/Footer";
+import "./globals.css";
+export const metadata:Metadata={title:{default:"Gluten Free Finder",template:"%s | Gluten Free Finder"},description:"Trova locali, negozi ed esperienze gluten free verificate dalla community."};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="it"><body><Header/><div className="site-main">{children}</div><Footer/></body></html>}
