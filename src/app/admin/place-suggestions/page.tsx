@@ -1,1 +1,11 @@
-
+"use client";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase-browser";
+type S={id:number;name:string;slug:string;country:string|null;region:string|null;province:string|null;city:string|null;address:string|null;place_type:string;gf_category:string;user_note:string|null;created_at:string;status:string};
+export default function Page(){const[ok,setOk]=useState<boolean|null>(null),[rows,setRows]=useState<S[]>([]),[msg,setMsg]=useState(""),[busy,setBusy]=useState<number|null>(null);
+ async function load(){const{data:a}=await supabase.rpc("is_admin");if(a!==true){setOk(false);return}setOk(true);const{data,error}=await supabase.from("place_suggestions").select("*").eq("status","pending").order("created_at",{ascending:false});if(error)setMsg(error.message);else setRows((data||[])as S[])}
+ useEffect(()=>{void load()},[]);
+ async function approve(id:number){setBusy(id);const{data,error}=await supabase.rpc("approve_place_suggestion",{p_suggestion_id:id});setBusy(null);if(error)return setMsg(error.message);setMsg(`Suggerimento approvato. Creato come bozza: ${data?.slug||"locale"}.`);await load()}
+ async function reject(id:number){const note=window.prompt("Motivo del rifiuto (facoltativo):")||"";setBusy(id);const{data:{user}}=await supabase.auth.getUser();const{error}=await supabase.from("place_suggestions").update({status:"rejected",admin_note:note,reviewed_by:user?.id,reviewed_at:new Date().toISOString()}).eq("id",id);setBusy(null);if(error)setMsg(error.message);else await load()}
+ if(ok===null)return <main>Verifica autorizzazioni...</main>;if(!ok)return <main><h1>Accesso negato</h1></main>;
+ return <main style={{maxWidth:1000,margin:"0 auto",padding:30}}><h1>Locali suggeriti dagli utenti</h1><p>Con l’approvazione il locale viene creato come bozza, mai pubblicato automaticamente.</p>{rows.map(s=><article key={s.id} style={{border:"1px solid #ddd",padding:18,borderRadius:10,marginBottom:14}}><h2>{s.name}</h2><p>{s.address}</p><p>{[s.city,s.province,s.region,s.country].filter(Boolean).join(" · ")}</p><p><strong>Tipologia:</strong> {s.place_type} · <strong>GF:</strong> {s.gf_category}</p><p><strong>Motivazione:</strong> {s.user_note}</p><button disabled={busy!==null} onClick={()=>approve(s.id)}>Approva e crea bozza</button> <button disabled={busy!==null} onClick={()=>reject(s.id)}>Rifiuta</button></article>)}{!rows.length&&<p>Nessun suggerimento in attesa.</p>}{msg&&<p><strong>{msg}</strong></p>}</main>}
