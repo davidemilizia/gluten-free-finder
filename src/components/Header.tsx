@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase-browser";
+import SuggestPlaceLink from "@/components/SuggestPlaceLink";
 
 export default function Header() {
   const [user, setUser] = useState<User | null>(null);
