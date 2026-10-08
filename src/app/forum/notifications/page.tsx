@@ -1,0 +1,1 @@
+import PublicShell from"@/components/layout/PublicShell";import ForumNotifications from"@/components/forum/ForumNotifications";export default function Page(){return <PublicShell><ForumNotifications/></PublicShell>}

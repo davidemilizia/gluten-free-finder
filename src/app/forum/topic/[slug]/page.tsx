@@ -1,0 +1,1 @@
+import PublicShell from"@/components/layout/PublicShell";import ForumTopic from"@/components/forum/ForumTopic";type Props={params:Promise<{slug:string}>};export default async function Page({params}:Props){const{slug}=await params;return <PublicShell><ForumTopic slug={slug}/></PublicShell>}
