@@ -1,1 +1,1 @@
-
+import{Suspense}from"react";import PublicShell from"@/components/layout/PublicShell";import ForumHome from"@/components/forum/ForumHome";export const dynamic="force-dynamic";export default function Page(){return <PublicShell><Suspense fallback={<section className="card">Caricamento forum...</section>}><ForumHome/></Suspense></PublicShell>}
