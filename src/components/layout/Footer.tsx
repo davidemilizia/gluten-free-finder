@@ -1,2 +1,22 @@
 import Link from "next/link";
-export default function Footer(){return <footer className="footer"><div className="container footer-grid"><div><strong>🍃 Gluten Free Finder</strong><div style={{color:"#5f6f64",fontSize:14}}>La community per trovare e condividere esperienze gluten free.</div></div><nav className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/terms">Termini</Link><Link href="/cookies">Cookie</Link><Link href="/places">Locali</Link><Link href="/suggest-place">Suggerisci un locale</Link></nav></div></footer>}
+
+export default function Footer() {
+  return (
+    <footer className="footer">
+      <div className="container footer-grid">
+        <div>
+          <strong>🍃 Gluten Free Finder</strong>
+          <div style={{ color: "#5f6f64", fontSize: 14 }}>La community per trovare e condividere esperienze gluten free.</div>
+        </div>
+        <nav className="footer-links">
+          <Link href="/la-nostra-storia">La nostra storia</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Termini</Link>
+          <Link href="/cookies">Cookie</Link>
+          <Link href="/places">Locali</Link>
+          <Link href="/suggest-place">Suggerisci un locale</Link>
+        </nav>
+      </div>
+    </footer>
+  );
+}
