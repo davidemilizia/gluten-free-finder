@@ -1,3 +1,66 @@
-import Link from "next/link";import{Suspense}from"react";import SearchFilters from"@/components/SearchFilters";import PublicShell from"@/components/layout/PublicShell";import{supabasePublic}from"@/lib/supabase-public";
-export const dynamic="force-dynamic";
-export default async function Home(){const{data}=await supabasePublic.from("places").select("slug,name,continent,country,region,province,city,type,gf_category").eq("published",true).order("id",{ascending:false});const places=data??[];const latest=places.slice(0,3);return <PublicShell><section className="hero"><div className="eyebrow" style={{color:"#c9f7d5"}}>La community gluten free</div><h1>Scopri locali affidabili, ovunque tu sia.</h1><p>Cerca ristoranti, pizzerie, pasticcerie, negozi e hotel. Leggi recensioni verificate e condividi nuove scoperte con la community.</p><div className="hero-actions"><Link href="/places" className="btn btn-primary">Esplora i locali</Link><Link href="/suggest-place" className="btn btn-secondary">Suggerisci un locale</Link></div></section><section className="filters-card"><div className="eyebrow">Ricerca avanzata</div><h2 className="section-title">Trova il posto giusto</h2><Suspense fallback={<p>Caricamento filtri...</p>}><SearchFilters places={places}/></Suspense></section><section className="card"><div className="eyebrow">Nuove scoperte</div><h2 className="section-title">Ultimi locali pubblicati</h2><div className="places-grid">{latest.map((p:any)=><Link key={p.slug} href={`/places/${p.slug}`} className="place-card"><span className="badge">{p.gf_category}</span><h3>{p.name}</h3><p>{p.type} · {p.city}, {p.region}</p><strong>Apri la scheda →</strong></Link>)}</div></section><section className="card"><div className="info-grid"><div className="info-tile"><strong>✓ Recensioni trasparenti</strong><p>Foto pubbliche e visite verificabili.</p></div><div className="info-tile"><strong>🏪 Proprietari verificati</strong><p>Risposte e correzioni sottoposte a moderazione.</p></div><div className="info-tile"><strong>🌍 Ricerca internazionale</strong><p>Continente, nazione, regione, provincia e comune.</p></div></div></section></PublicShell>}
+import Link from "next/link";
+import { Suspense } from "react";
+import SearchFilters from "@/components/SearchFilters";
+import PublicShell from "@/components/layout/PublicShell";
+import StoryPreview from "@/components/StoryPreview";
+import { supabasePublic } from "@/lib/supabase-public";
+
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const { data } = await supabasePublic
+    .from("places")
+    .select("slug,name,continent,country,region,province,city,type,gf_category")
+    .eq("published", true)
+    .order("id", { ascending: false });
+
+  const places = data ?? [];
+  const latest = places.slice(0, 3);
+
+  return (
+    <PublicShell>
+      <section className="hero">
+        <div className="eyebrow" style={{ color: "#c9f7d5" }}>La community gluten free</div>
+        <h1>Scopri locali affidabili, ovunque tu sia.</h1>
+        <p>Cerca ristoranti, pizzerie, pasticcerie, negozi e hotel. Leggi recensioni verificate e condividi nuove scoperte con la community.</p>
+        <div className="hero-actions">
+          <Link href="/places" className="btn btn-primary">Esplora i locali</Link>
+          <Link href="/suggest-place" className="btn btn-secondary">Suggerisci un locale</Link>
+        </div>
+      </section>
+
+      <section className="filters-card">
+        <div className="eyebrow">Ricerca avanzata</div>
+        <h2 className="section-title">Trova il posto giusto</h2>
+        <Suspense fallback={<p>Caricamento filtri...</p>}>
+          <SearchFilters places={places} />
+        </Suspense>
+      </section>
+
+      <section className="card">
+        <div className="eyebrow">Nuove scoperte</div>
+        <h2 className="section-title">Ultimi locali pubblicati</h2>
+        <div className="places-grid">
+          {latest.map((place: any) => (
+            <Link key={place.slug} href={`/places/${place.slug}`} className="place-card">
+              <span className="badge">{place.gf_category}</span>
+              <h3>{place.name}</h3>
+              <p>{place.type} · {place.city}, {place.region}</p>
+              <strong>Apri la scheda →</strong>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <StoryPreview />
+
+      <section className="card">
+        <div className="info-grid">
+          <div className="info-tile"><strong>✓ Recensioni trasparenti</strong><p>Foto pubbliche e visite verificabili.</p></div>
+          <div className="info-tile"><strong>🏪 Proprietari verificati</strong><p>Risposte e correzioni sottoposte a moderazione.</p></div>
+          <div className="info-tile"><strong>🌍 Ricerca internazionale</strong><p>Continente, nazione, regione, provincia e comune.</p></div>
+        </div>
+      </section>
+    </PublicShell>
+  );
+}
