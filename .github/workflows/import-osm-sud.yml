@@ -1,1 +1,35 @@
-
+name: Importa locali GF da OSM - Sud Italia
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  import-osm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.OSM_IMPORT_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.OSM_IMPORT_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Scarica il repository
+        uses: actions/checkout@v4
+      - name: Configura Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - name: Installa dipendenze
+        run: python -m pip install -r tools/requirements.txt
+      - name: Scarica estratto OSM Sud Italia
+        run: curl -L --retry 3 --fail -o tools/sud-latest.osm.pbf https://download.geofabrik.de/europe/italy/sud-latest.osm.pbf
+      - name: Estrai candidati gluten free
+        run: python tools/import_osm_gluten_free.py tools/sud-latest.osm.pbf --output tools/candidati-sud-italia.jsonl --region "Sud Italia"
+      - name: Carica candidati in Supabase
+        run: python tools/upload_candidates.py tools/candidati-sud-italia.jsonl --region "Sud Italia"
+      - name: Riepilogo
+        if: always()
+        run: |
+          if [ -f tools/candidati-sud-italia.jsonl ]; then
+            echo "Candidati estratti: $(wc -l < tools/candidati-sud-italia.jsonl)"
+          fi
